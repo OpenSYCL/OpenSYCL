@@ -129,6 +129,10 @@ hcf_kernel_info::hcf_kernel_info(
             std::make_pair(o.value(), option.second));
     }
   }
+  if (const auto *num_orig_params =
+          kernel_node->get_value("num-original-parameters")) {
+    _num_original_parameters = std::stoll(*num_orig_params);
+  }
 
   _parsing_successful = true;
 }

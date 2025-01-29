@@ -144,6 +144,7 @@ private:
   std::vector<std::pair<rt::kernel_build_option, std::string>>
       _compilation_options;
 
+  std::size_t _num_original_parameters;
   hcf_object_id _id;
   bool _parsing_successful = false;
 };

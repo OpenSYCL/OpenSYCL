@@ -23,6 +23,7 @@
 #include "hipSYCL/common/hcf_container.hpp"
 
 #include <cstddef>
+#include <unordered_map>
 
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Attributes.h>
@@ -146,13 +147,16 @@ struct KernelParam {
 
 struct KernelInfo {
   std::string Name;
+  std::size_t NumOriginalParams;
   std::vector<KernelParam> Parameters;
 
   KernelInfo() = default;
   KernelInfo(const std::string &KernelName, llvm::Module &M,
+             std::size_t NumOriginalParameters,
              const std::vector<OriginalParamInfo>& OriginalParamInfos) {
 
     this->Name = KernelName;
+    this->NumOriginalParams = NumOriginalParameters;
     if(auto* F = M.getFunction(KernelName)) {
 
       auto* FType = F->getFunctionType();
@@ -328,6 +332,14 @@ std::unique_ptr<llvm::Module> generateDeviceIR(llvm::Module &M,
     }
   }
 
+  // Save original number of params before expanding arguments
+  std::unordered_map<std::string, std::size_t> NumOriginalParameters;
+  for(const auto& KN : EPP.getKernelNames()) {
+    if(auto* F = M.getFunction(KN)) {
+      NumOriginalParameters[F->getName().str()] = F->getFunctionType()->getNumParams();
+    }
+  }
+
   AggregateArgumentExpansionPass KernelArgExpansionPass{EPP.getKernelNames()};
   KernelArgExpansionPass.run(*DeviceModule, DeviceMAM);
 
@@ -345,7 +357,7 @@ std::unique_ptr<llvm::Module> generateDeviceIR(llvm::Module &M,
     auto* OriginalParamInfos = KernelArgExpansionPass.getInfosOnOriginalParams(Name);
     assert(OriginalParamInfos);
 
-    KernelInfo KI{Name, *DeviceModule, *OriginalParamInfos};
+    KernelInfo KI{Name, *DeviceModule, NumOriginalParameters[Name], *OriginalParamInfos};
     KernelInfoOutput.push_back(KI);
   }
 
@@ -387,7 +399,8 @@ generateHCF(llvm::Module &DeviceModule, std::size_t HcfObjectId,
   for(const auto& Kernel : Kernels) {
     auto* K = KernelsNode->add_subnode(Kernel.Name);
     K->set_as_list("image-providers", {std::string{"llvm-ir.global"}});
-    
+    K->set("num-original-parameters", std::to_string(Kernel.NumOriginalParams));
+
     auto* FlagsNode = K->add_subnode("compile-flags");
     for(const auto& F : KernelCompileFlags) {
       FlagsNode->set(F, "1");
