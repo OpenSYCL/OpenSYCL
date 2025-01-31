@@ -29,6 +29,7 @@
 
 #ifdef HIPSYCL_WITH_SSCP_COMPILER
 #include "hipSYCL/compiler/sscp/TargetSeparationPass.hpp"
+#include "hipSYCL/compiler/sscp/pcuda/FreeKernelCall.hpp"
 #endif
 
 #ifdef HIPSYCL_WITH_REFLECTION_BUILTINS
@@ -58,6 +59,11 @@ static llvm::cl::opt<std::string> LLVMSSCPKernelOpts{
     "acpp-sscp-kernel-opts", llvm::cl::init(""),
     llvm::cl::desc{
         "Specify compilation options to use when JIT-compiling AdaptiveCpp SSCP kernels"}};
+
+static llvm::cl::opt<bool> EnablePCuda{
+    "acpp-sscp-pcuda", llvm::cl::init(false),
+    llvm::cl::desc{"Enable AdaptiveCpp PCUDA support in the SSCP compiler"}};
+
 
 static llvm::cl::opt<bool> EnableStdPar{
     "acpp-stdpar", llvm::cl::init(false),
@@ -157,6 +163,10 @@ extern "C" LLVM_ATTRIBUTE_WEAK ::llvm::PassPluginLibraryInfo llvmGetPassPluginIn
           if(EnableLLVMSSCP){
             PB.registerPipelineStartEPCallback(
                 [&](llvm::ModulePassManager &MPM, OptLevel Level) {
+                  if(EnablePCuda) {
+                    // Must be run before target separation pass
+                    MPM.addPass(FreeKernelCallPass{});
+                  }
                   MPM.addPass(TargetSeparationPass{LLVMSSCPKernelOpts});
                 });
           }

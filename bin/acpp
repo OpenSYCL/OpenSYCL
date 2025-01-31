@@ -369,7 +369,10 @@ class acpp_config:
   algorithms will be offloaded unconditionally."""),
       'is-export-all' : option("--acpp-export-all", "ACPP_EXPORT_ALL", "default-export-all",
 """  (Experimental) Treat all functions implicitly as SYCL_EXTERNAL. Only supported with generic target.
-  This currently only works with translation units that include the sycl.hpp header.""")
+  This currently only works with translation units that include the sycl.hpp header."""),
+      'pcuda' : option("--acpp-pcuda", "ACPP_PCUDA", "default-pcuda",
+"""  Enable AdaptiveCpp portable CUDA (PCUDA) support as input language.
+  This is *exclusively* supported with --acpp-targets=generic.""")
     }
 
 
@@ -854,6 +857,13 @@ class acpp_config:
   @property
   def stdpar_prefetch_mode(self):
     return self._retrieve_option("stdpar-prefetch-mode")
+
+  @property
+  def is_pcuda(self):
+    try:
+      return self._is_flag_set("pcuda")
+    except OptionNotSet:
+      return False
 
   @property
   def save_temps(self):
@@ -1567,6 +1577,7 @@ class llvm_sscp_invocation:
       raise RuntimeError("LLVM SSCP backend does not support specifiying target architecture")
 
     self._clang_path = config.clang_path
+    self._is_pcuda = config.pcuda
 
   def get_compiler_preference(self):
     return (self._clang_path, 10)
@@ -1582,6 +1593,9 @@ class llvm_sscp_invocation:
   def get_cxx_flags(self):
     flags = ["-D__ACPP_ENABLE_LLVM_SSCP_TARGET__",
             "-Xclang", "-disable-O0-optnone", "-mllvm", "-acpp-sscp"]
+    
+    if self._is_pcuda:
+      flags += ["-mllvm", "-acpp-sscp-pcuda", "-fdeclspec", "-D__ACPP_PCUDA__"]
 
     if self._config.is_export_all:
       flags += ["-mllvm","-acpp-sscp-export-all"]
