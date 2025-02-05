@@ -68,13 +68,13 @@ public:
   virtual ~backend_allocator(){}
 };
 
-void *allocate_device(backend_allocator *alloc, size_t min_alignment,
+void *allocate_device(backend_allocator &alloc, size_t min_alignment,
                       size_t size_bytes, const allocation_hints &hints = {});
-void *allocate_host(backend_allocator *alloc, size_t min_alignment,
+void *allocate_host(backend_allocator &alloc, size_t min_alignment,
                     size_t bytes, const allocation_hints &hints = {});
-void *allocate_shared(backend_allocator* alloc, size_t bytes,
+void *allocate_shared(backend_allocator &alloc, size_t bytes,
                       const allocation_hints &hints = {});
-void deallocate(backend_allocator* alloc, void *mem);
+void deallocate(backend_allocator &alloc, void *mem);
 
 
 }

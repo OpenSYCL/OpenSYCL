@@ -18,44 +18,44 @@
 namespace hipsycl {
 namespace rt {
 
-void *allocate_device(backend_allocator *alloc, size_t min_alignment,
+void *allocate_device(backend_allocator &alloc, size_t min_alignment,
                       size_t size_bytes, const allocation_hints &hints) {
-  auto *ptr = alloc->raw_allocate(min_alignment, size_bytes, hints);
+  auto *ptr = alloc.raw_allocate(min_alignment, size_bytes, hints);
   if(ptr) {
     application::event_handler_layer().on_new_allocation(
         ptr, size_bytes,
-        allocation_info{alloc->get_device(),
+        allocation_info{alloc.get_device(),
                         allocation_info::allocation_type::device});
   }
   return ptr;
 }
 
-void *allocate_host(backend_allocator *alloc, size_t min_alignment,
+void *allocate_host(backend_allocator &alloc, size_t min_alignment,
                     size_t bytes, const allocation_hints &hints) {
-  auto* ptr = alloc->raw_allocate_optimized_host(min_alignment, bytes, hints);
+  auto* ptr = alloc.raw_allocate_optimized_host(min_alignment, bytes, hints);
   if(ptr) {
     application::event_handler_layer().on_new_allocation(
         ptr, bytes,
-        allocation_info{alloc->get_device(),
+        allocation_info{alloc.get_device(),
                         allocation_info::allocation_type::host});
   }
   return ptr;
 }
 
-void *allocate_shared(backend_allocator *alloc, size_t bytes,
+void *allocate_shared(backend_allocator &alloc, size_t bytes,
                       const allocation_hints &hints) {
-  auto* ptr = alloc->raw_allocate_usm(bytes, hints);
+  auto* ptr = alloc.raw_allocate_usm(bytes, hints);
   if(ptr) {
     application::event_handler_layer().on_new_allocation(
         ptr, bytes,
-        allocation_info{alloc->get_device(),
+        allocation_info{alloc.get_device(),
                         allocation_info::allocation_type::host});
   }
   return ptr;
 }
 
-void deallocate(backend_allocator* alloc, void *mem) {
-  alloc->raw_free(mem);
+void deallocate(backend_allocator &alloc, void *mem) {
+  alloc.raw_free(mem);
   application::event_handler_layer().on_deallocation(mem);
 }
 
