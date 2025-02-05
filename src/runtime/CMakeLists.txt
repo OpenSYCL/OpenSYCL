@@ -199,6 +199,8 @@ if(WITH_LEVEL_ZERO_BACKEND)
   target_compile_options(rt-backend-ze PRIVATE ${HIPSYCL_RT_EXTRA_CXX_FLAGS})
   target_link_libraries(rt-backend-ze PRIVATE ${HIPSYCL_RT_EXTRA_LINKER_FLAGS})
 
+  target_precompile_headers(rt-backend-ze PRIVATE <level_zero/ze_api.h>)
+
   if(WITH_SSCP_COMPILER)
     target_compile_definitions(rt-backend-ze PRIVATE -DHIPSYCL_WITH_SSCP_COMPILER)
     target_link_libraries(rt-backend-ze PRIVATE llvm-to-spirv)
@@ -259,6 +261,8 @@ if(WITH_OPENCL_BACKEND)
   target_link_libraries(rt-backend-ocl PRIVATE ${HIPSYCL_RT_EXTRA_LINKER_FLAGS})
   target_compile_definitions(rt-backend-ocl PRIVATE -DCL_HPP_TARGET_OPENCL_VERSION=210)
 
+  target_precompile_headers(rt-backend-ocl PRIVATE <CL/opencl.hpp> <CL/cl.h>)
+
   if(WITH_SSCP_COMPILER)
     target_compile_definitions(rt-backend-ocl PRIVATE -DHIPSYCL_WITH_SSCP_COMPILER)
     target_link_libraries(rt-backend-ocl PRIVATE llvm-to-spirv)
@@ -280,6 +284,8 @@ if(WITH_CPU_BACKEND)
     omp/omp_event.cpp
     omp/omp_hardware_manager.cpp
     omp/omp_queue.cpp)
+
+  target_precompile_headers(rt-backend-omp PRIVATE <omp.h>)
 
     # OMP_ROOT and/or OpenMP_ROOT is not defined by default on Mac
     if (APPLE)
