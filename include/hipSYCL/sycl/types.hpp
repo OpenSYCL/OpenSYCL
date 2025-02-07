@@ -69,7 +69,10 @@ using exception_ptr = exception_ptr_class;
 using exception_list = vector_class<exception_ptr>;
 using async_handler = function_class<void(sycl::exception_list)>;
 
-class half;
+namespace half_impl {
+    class half;
+}
+using half = half_impl::half;
 
 // \todo Better use uint32_t etc
 namespace detail {
