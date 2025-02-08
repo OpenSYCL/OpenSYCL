@@ -393,11 +393,6 @@ endif()
 if(APPLE)
   set(DEFAULT_OMP_FLAG "-Xclang -fopenmp")
 
-  if(Boost_FIBER_LIBRARY_DEBUG)
-    set(DEFAULT_BOOST_LIBRARIES "${Boost_CONTEXT_LIBRARY_DEBUG} ${Boost_FIBER_LIBRARY_DEBUG} -Wl,-rpath ${Boost_LIBRARY_DIR}")
-  else()
-    set(DEFAULT_BOOST_LIBRARIES "${Boost_CONTEXT_LIBRARY_RELEASE} ${Boost_FIBER_LIBRARY_RELEASE} -Wl,-rpath ${Boost_LIBRARY_DIR}")
-  endif()
 else()
   set(DEFAULT_OMP_FLAG "-fopenmp")
 endif()
@@ -417,12 +412,6 @@ set(DEFAULT_CUDA_LINK_LINE "-Wl,-rpath=$HIPSYCL_CUDA_LIB_PATH -L$HIPSYCL_CUDA_LI
 
 set(DEFAULT_WIN32_HIP_LINK_LINE "-L$HIPSYCL_ROCM_PATH/lib -lamdhip64")
 
-if(MINGW)
-  set(DEFAULT_LINK_PREFIX "-l:")
-else()
-  set(DEFAULT_LINK_PREFIX "-l")
-endif()
-
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   get_filename_component(Boost_CONTEXT_LIBRARY_NAME "${Boost_CONTEXT_LIBRARY_DEBUG}" NAME)
   get_filename_component(Boost_FIBER_LIBRARY_NAME "${Boost_FIBER_LIBRARY_DEBUG}" NAME)
@@ -430,14 +419,28 @@ else()
   get_filename_component(Boost_CONTEXT_LIBRARY_NAME "${Boost_CONTEXT_LIBRARY_RELEASE}" NAME)
   get_filename_component(Boost_FIBER_LIBRARY_NAME "${Boost_FIBER_LIBRARY_RELEASE}" NAME)
 endif()
-set(DEFAULT_WIN32_OMP_LINK_LINE "-L${Boost_LIBRARY_DIR} ${DEFAULT_LINK_PREFIX}${Boost_CONTEXT_LIBRARY_NAME} ${DEFAULT_LINK_PREFIX}${Boost_FIBER_LIBRARY_NAME} ${DEFAULT_OMP_FLAG}")
-set(DEFAULT_WIN32_SEQUENTIAL_LINK_LINE "-L${Boost_LIBRARY_DIR} ${DEFAULT_LINK_PREFIX}${Boost_CONTEXT_LIBRARY_NAME} ${DEFAULT_LINK_PREFIX}${Boost_FIBER_LIBRARY_NAME} -llibomp")
+
+if(APPLE)
+  set(DEFAULT_BOOST_LIBRARIES "${Boost_LIBRARY_DIR}/${Boost_CONTEXT_LIBRARY_NAME} ${Boost_LIBRARY_DIR}/${Boost_FIBER_LIBRARY_NAME} -Wl,-rpath ${Boost_LIBRARY_DIR}")
+elseif(WIN32)
+  if(MINGW)
+    set(DEFAULT_LINK_PREFIX "-l:")
+  else()
+    set(DEFAULT_LINK_PREFIX "-l")
+  endif()
+  set(DEFAULT_BOOST_LIBRARIES "-L${Boost_LIBRARY_DIR} ${DEFAULT_LINK_PREFIX}${Boost_CONTEXT_LIBRARY_NAME} ${DEFAULT_LINK_PREFIX}${Boost_FIBER_LIBRARY_NAME}")
+else()
+  set(DEFAULT_BOOST_LIBRARIES "-L${Boost_LIBRARY_DIR} -lboost_context -lboost_fiber -Wl,-rpath=${Boost_LIBRARY_DIR}")
+endif()
+set(DEFAULT_BOOST_INCLUDES "-I${Boost_INCLUDE_DIR}")
 
 # need add_subdirectory(src) before this!
+set(DEFAULT_WIN32_OMP_LINK_LINE "${DEFAULT_BOOST_LIBRARIES} ${DEFAULT_OMP_FLAG}")
+set(DEFAULT_WIN32_SEQUENTIAL_LINK_LINE "${DEFAULT_BOOST_LIBRARIES} -llibomp")
 set(DEFAULT_APPLE_OMP_LINK_LINE "${DEFAULT_BOOST_LIBRARIES} ${DEFAULT_OMP_FLAG} ${hipSYCL_OpenMP_CXX_LIBRARIES}")
 set(DEFAULT_APPLE_SEQUENTIAL_LINK_LINE "${DEFAULT_BOOST_LIBRARIES} ${hipSYCL_OpenMP_CXX_LIBRARIES}")
-set(DEFAULT_OMP_LINK_LINE "-L${Boost_LIBRARY_DIR} -lboost_context -lboost_fiber -Wl,-rpath=${Boost_LIBRARY_DIR} ${DEFAULT_OMP_FLAG}")
-set(DEFAULT_SEQUENTIAL_LINK_LINE "-L${Boost_LIBRARY_DIR} -lboost_context -lboost_fiber -Wl,-rpath=${Boost_LIBRARY_DIR}")
+set(DEFAULT_OMP_LINK_LINE "${DEFAULT_BOOST_LIBRARIES} ${DEFAULT_OMP_FLAG}")
+set(DEFAULT_SEQUENTIAL_LINK_LINE "${DEFAULT_BOOST_LIBRARIES}")
 
 # If no link lines given, set to default.
 if(WIN32)
@@ -500,11 +503,11 @@ endif()
 
 # always need -D_ENABLE_EXTENDED_ALIGNED_STORAGE to allow correctly aligned local memory on CPU
 if(NOT OMP_CXX_FLAGS)
-  set(OMP_CXX_FLAGS "-I${Boost_INCLUDE_DIR} ${DEFAULT_OMP_FLAG} -D_ENABLE_EXTENDED_ALIGNED_STORAGE" CACHE STRING "Arguments passed to compiler to compile SYCL applications with OpenMP")
+  set(OMP_CXX_FLAGS "${DEFAULT_BOOST_INCLUDES} ${DEFAULT_OMP_FLAG} -D_ENABLE_EXTENDED_ALIGNED_STORAGE" CACHE STRING "Arguments passed to compiler to compile SYCL applications with OpenMP")
 endif()
 
 if(NOT SEQUENTIAL_CXX_FLAGS)
-  set(SEQUENTIAL_CXX_FLAGS "-I${Boost_INCLUDE_DIR} -D_ENABLE_EXTENDED_ALIGNED_STORAGE" CACHE STRING "Arguments passed to compiler to compile SYCL applications on host")
+  set(SEQUENTIAL_CXX_FLAGS "${DEFAULT_BOOST_INCLUDES} -D_ENABLE_EXTENDED_ALIGNED_STORAGE" CACHE STRING "Arguments passed to compiler to compile SYCL applications on host")
 endif()
 
 if(BUILD_CLANG_PLUGIN)
