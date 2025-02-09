@@ -184,7 +184,7 @@ inline void parallel_for_ndrange_kernel(
       iterate_nd_range_omp(f, std::move(group_id), num_groups, local_size, offset,
         num_local_mem_bytes, &group_shared_memory_ptr, barrier_impl);
     });
-#elif defined(HIPSYCL_HAS_FIBERS)
+#elif defined(ACPP_ENABLE_BOOST_FIBERS)
     host::static_range_decomposition<Dim> group_decomposition{
         num_groups, get_num_threads()};
 
@@ -328,7 +328,8 @@ public:
             Kernel k) {
 
     this->_type = type;
-#if !defined(HIPSYCL_HAS_FIBERS) && !defined(__ACPP_USE_ACCELERATED_CPU__)
+
+#if !defined(ACPP_ENABLE_BOOST_FIBERS) && !defined(__ACPP_USE_ACCELERATED_CPU__)
     if (type == rt::kernel_type::ndrange_parallel_for) {
       this->_invoker = [](rt::dag_node*) {
         throw sycl::exception{sycl::make_error_code(sycl::errc::feature_not_supported),
@@ -337,13 +338,14 @@ public:
           " * to verify that you really need the features of nd_range parallel for.\n"
           "   If you do not need local memory, use basic parallel for instead.\n"
           " * users targeting SYCL 1.2.1 may use hierarchical parallel for, which\n"
-          "   can express the same algorithms, but may have functionality caveats in hipSYCL\n"
+          "   can express the same algorithms, but may have functionality caveats in AdaptiveCpp\n"
           "   and/or other SYCL implementations.\n"
-          " * if you use hipSYCL exclusively, you are encouraged to use scoped parallelism:\n"
-          "   https://github.com/illuhad/hipSYCL/blob/develop/doc/scoped-parallelism.md\n"
+          " * if you use AdaptiveCpp exclusively, you are encouraged to use scoped parallelism:\n"
+          "   https://github.com/AdaptiveCpp/AdaptiveCpp/blob/develop/doc/scoped-parallelism.md\n"
           " * if you can use Clang, enable the compiler support\n"
-          "   CMake: -DHIPSYCL_USE_ACCELERATED_CPU=ON, syclcc: --hipsycl-use-accelerated-cpu\n"
-          " * if you absolutely need nd_range parallel for and cannot use Clang, enable fiber support in hipSYCL."
+          "   CMake: -DACPP_USE_ACCELERATED_CPU=ON, acpp: --acpp-use-accelerated-cpu\n"
+          " * if you absolutely need nd_range parallel for and cannot use Clang, enable fiber support in AdaptiveCpp\n"
+          "   CMake: -DACPP_NO_FIBERS=OFF"
         };
       };
       return;
