@@ -521,6 +521,7 @@ llvm::PreservedAnalyses TargetSeparationPass::run(llvm::Module &M,
       IRConstant::optimizeCodeAfterConstantModification(M, MAM);
     }
   }
+  
   return llvm::PreservedAnalyses::none();
 }
 

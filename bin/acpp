@@ -748,6 +748,10 @@ class acpp_config:
     return os.path.join(acpp_path, "..")
 
   @property
+  def acpp_binary_path(self):
+    return os.path.dirname(os.path.realpath(__file__))
+
+  @property
   def acpp_plugin_path(self):
     if sys.platform.startswith('win32'):
       return os.path.join(self.acpp_installation_path, "bin", "acpp-clang.dll")
@@ -1577,7 +1581,6 @@ class llvm_sscp_invocation:
       raise RuntimeError("LLVM SSCP backend does not support specifiying target architecture")
 
     self._clang_path = config.clang_path
-    self._is_pcuda = config.pcuda
 
   def get_compiler_preference(self):
     return (self._clang_path, 10)
@@ -1594,9 +1597,6 @@ class llvm_sscp_invocation:
     flags = ["-D__ACPP_ENABLE_LLVM_SSCP_TARGET__",
             "-Xclang", "-disable-O0-optnone", "-mllvm", "-acpp-sscp"]
     
-    if self._is_pcuda:
-      flags += ["-mllvm", "-acpp-sscp-pcuda", "-fdeclspec", "-D__ACPP_PCUDA__"]
-
     if self._config.is_export_all:
       flags += ["-mllvm","-acpp-sscp-export-all"]
 
@@ -1640,7 +1640,9 @@ class compiler:
     self._is_stdpar = config.is_stdpar
     self._is_stdpar_system_usm = config.is_stdpar_system_usm
     self._is_stdpar_unconditional_offload = config.is_stdpar_unconditional_offload
+    self._is_pcuda = config.is_pcuda
     self._clang_opt_args = config.default_clang_optimization_args
+    self._acpp_pcuda_pp_path = os.path.join(config.acpp_binary_path, "acpp-pcuda-pp")
     try:
       self._clang_path = config.clang_path
     except OptionNotSet:
@@ -1657,6 +1659,8 @@ class compiler:
                       "simultaneously in non-explicit multipass; enabling explicit "
                       "multipass compilation.")
         self._is_explicit_multipass = True
+    if self._is_pcuda and "generic" not in self._targets:
+      raise RuntimeError("PCUDA support requires generic target.")
 
     self._backends = []
     self._multipass_backends = []
@@ -1827,6 +1831,13 @@ class compiler:
     if sys.platform.startswith("win32"):
       args += ["-D_USE_MATH_DEFINES"]
 
+    if self._is_pcuda:
+      args += [
+        "-isystem", os.path.join(self._acpp_include_path, "hipSYCL", "pcuda"),
+        "-D__ACPP_PCUDA__", 
+        "-mllvm", "-acpp-sscp-pcuda",
+        "-fdeclspec"
+      ]
     if self._is_stdpar:
       stdpar_include_path = os.path.join(self._acpp_include_path,"hipSYCL","std","stdpar")
       args += [
@@ -1901,6 +1912,17 @@ class compiler:
 
     if not self._is_dry_run:
       multipass_backend.create_code_objects(targets)
+
+  # Returns processed filename
+  def _run_pcdua_pp(self, source_file):
+    pcuda_pp_app = os.path.join(self._acpp_pcuda_pp_path)
+    with tempfile.TemporaryDirectory(prefix="adaptivecpp-") as temp_dir:
+      outfile = os.path.join(temp_dir, "acpp-pcuda-pp.out.cpp")
+      ret_val = run_or_print([pcuda_pp_app, source_file, outfile])
+      if ret_val != 0:
+        raise RuntimeError("acpp-pcuda-pp invocation failed with error code ", ret_val)
+      return outfile
+    raise RuntimeError("Could not create temporary directory")
 
   def _select_compiler(self):
     compiler_executable, compiler_priority = ("", 0)

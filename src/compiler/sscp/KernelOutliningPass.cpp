@@ -197,7 +197,7 @@ private:
 // This function attempts to fix those issues. In particular, if there is a struct argument,
 // it tries to canonicalize it such that it has the ByVal attribute. This is expected
 // by the AggregateArgumentExpansionPass later on.
-void canonicalizeKernelParameters(llvm::Function* F, llvm::Module& M) {
+void canonicalizeLambdaKernelParameters(llvm::Function* F, llvm::Module& M) {
   // If we have a different number of parameters than 1, we can assume
   // that clang has pre-expanded the struct for us to raw primitive types or data pointers. In that
   // case, there is nothing to do because those types can be used directly inside kernels.
@@ -253,6 +253,79 @@ void canonicalizeKernelParameters(llvm::Function* F, llvm::Module& M) {
       } /* else {} We have ByVal attribute, so all is well. */
     }
   }
+}
+
+
+llvm::Type* estimateFreeKernelPtrTypeFromValue(llvm::Value* V) {
+  if(auto* AI = llvm::dyn_cast<llvm::AllocaInst>(V)) {
+    return AI->getAllocatedType();
+  }
+  else if(auto* GEP = llvm::dyn_cast<llvm::GetElementPtrInst>(V)){
+    return GEP->getResultElementType();
+  } else if(auto* LI = llvm::dyn_cast<llvm::LoadInst>(V)) {
+    return LI->getAccessType();
+  } else if(auto* GV = llvm::dyn_cast<llvm::GlobalVariable>(V)) {
+    // When GV pointer is passed in - does this really mean
+    // that the user intended to pass the GV by value?
+    // As long as we don't support device globals, the answer is probably yes?
+    return GV->getValueType();
+  }
+  // TODO Are there cases where we need to investigate recursively
+  // backwards through the use-def chain?
+  return nullptr;
+}
+
+// Canonicalize free kernels. This is slightly different, since here
+// we need to look at callsites of kernels.
+void canonicalizeFreeKernelParameters(llvm::Function* F, llvm::Module& M) {
+  llvm::SmallDenseMap<int, llvm::SmallPtrSet<llvm::Type*, 4>> PtrTypeCandidates;
+
+  llvm::SmallSet<int, 16> UnclearPtrParams;
+  for(int i = 0; i < F->getFunctionType()->getNumParams(); ++i) {
+    auto* ArgTy = F->getArg(i)->getType();
+    if(ArgTy->isPointerTy()) {
+      if(F->hasParamAttribute(i, llvm::Attribute::ByRef)) {
+        llvm::Type* ByRefT = F->getParamByRefType(i);
+        F->removeParamAttr(i, llvm::Attribute::ByRef);
+        F->addParamAttr(i, llvm::Attribute::getWithByValType(M.getContext(), ByRefT));
+      }
+
+      if(!F->hasParamAttribute(i, llvm::Attribute::ByVal)) {
+        UnclearPtrParams.insert(i);
+      }
+    }
+  }
+
+  for(auto* U : F->users()) {
+    if(auto* CB = llvm::dyn_cast<llvm::CallBase>(U)) {
+      if(CB->getCalledFunction() == F) {
+        for(auto i : UnclearPtrParams) {
+          auto* Arg = CB->getArgOperand(i);
+
+          auto* T = estimateFreeKernelPtrTypeFromValue(Arg);
+          if(T && T->isAggregateType()) {
+            PtrTypeCandidates[i].insert(T);
+          }
+        }
+      }
+    }
+  }
+
+  for(auto i : UnclearPtrParams) {
+    llvm::Type* MaxSizeT = nullptr;
+    std::size_t MaxSize = 0;
+    for(auto* T : PtrTypeCandidates[i]) {
+      std::size_t Size = M.getDataLayout().getTypeSizeInBits(T);
+      if(Size > MaxSize) {
+        MaxSize = Size;
+        MaxSizeT = T;
+      }
+    }
+    if(MaxSizeT) {
+      F->addParamAttr(i, llvm::Attribute::getWithByValType(M.getContext(), MaxSizeT));
+    }
+  }
+  
 }
 
 }
@@ -434,11 +507,23 @@ KernelArgumentCanonicalizationPass::KernelArgumentCanonicalizationPass(
 
 llvm::PreservedAnalyses KernelArgumentCanonicalizationPass::run(llvm::Module &M,
                                                                 llvm::ModuleAnalysisManager &AM) {
+  llvm::SmallPtrSet<llvm::Function*, 16> FreeKernels;
+  utils::findFunctionsWithStringAnnotations(M, [&](llvm::Function *F, llvm::StringRef Annotation) {
+    if (F) {
+      if (Annotation.compare("acpp_free_kernel") == 0) {
+        FreeKernels.insert(F);
+      }
+    }
+  });
   for (const auto &K : KernelNames) {
     if (auto *F = M.getFunction(K)) {
-      canonicalizeKernelParameters(F, M);
+      if(FreeKernels.contains(F))
+        canonicalizeFreeKernelParameters(F, M);
+      else
+        canonicalizeLambdaKernelParameters(F, M);
     }
   }
+
   return llvm::PreservedAnalyses::none();
 }
 }

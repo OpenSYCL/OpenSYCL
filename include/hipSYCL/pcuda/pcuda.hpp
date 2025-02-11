@@ -15,9 +15,11 @@
 
 #include "hipSYCL/glue/llvm-sscp/s1_ir_constants.hpp"
 #include "hipSYCL/glue/llvm-sscp/hcf_registration.hpp"
-#include "hipSYCL/sycl/libkernel/sscp/core.hpp"
-#include "hipSYCL/sycl/libkernel/sscp/subgroup.hpp"
+#include "hipSYCL/sycl/libkernel/sscp/builtins/core.hpp"
+#include "hipSYCL/sycl/libkernel/sscp/builtins/subgroup.hpp"
 #include <cstddef>
+
+#include "pcuda_runtime.hpp"
 
 #ifndef __device__
 #define __device__
@@ -30,51 +32,121 @@
 #define __global__                                                             \
   [[clang::annotate("hipsycl_sscp_kernel")]]                                   \
   [[clang::annotate("hipsycl_sscp_outlining")]]                                \
-  [[clang::annotate("acpp_free_kernel")]]
+  [[clang::annotate("acpp_free_kernel")]]                                      \
+  [[clang::annotate("hipsycl_kernel_dimension", 3)]]
 
-#define ACPP_PCUDA_API extern "C"
 
-struct dim3 {
-  dim3(unsigned x_=1, unsigned y_=1, unsigned z_=1)
-  : x{x_}, y{y_}, z{z_} {}
 
-  unsigned x;
-  unsigned y;
-  unsigned z;
-};
+
 
 // needs -fdeclspec
 struct __pcudaThreadIdx {
-  __declspec(property(get = __acpp_sscp_get_local_id_x)) unsigned x;
-  __declspec(property(get = __acpp_sscp_get_local_id_y)) unsigned y;
-  __declspec(property(get = __acpp_sscp_get_local_id_z)) unsigned z;
+  __declspec(property(get = __fetch_x)) unsigned x;
+  __declspec(property(get = __fetch_y)) unsigned y;
+  __declspec(property(get = __fetch_z)) unsigned z;
 
   operator dim3() { return dim3{x, y, z}; }
+
+  static inline __attribute__((always_inline)) unsigned __fetch_x() {
+    return __acpp_sscp_get_local_id_x();
+  }
+
+  static inline __attribute__((always_inline)) unsigned __fetch_y() {
+    return __acpp_sscp_get_local_id_y();
+  }
+
+  static inline __attribute__((always_inline)) unsigned __fetch_z() {
+    return __acpp_sscp_get_local_id_z();
+  }
 };
 
 struct __pcudaBlockIdx {
-  __declspec(property(get = __acpp_sscp_get_group_id_x)) unsigned x;
-  __declspec(property(get = __acpp_sscp_get_group_id_y)) unsigned y;
-  __declspec(property(get = __acpp_sscp_get_group_id_z)) unsigned z;
+  __declspec(property(get = __fetch_x)) unsigned x;
+  __declspec(property(get = __fetch_y)) unsigned y;
+  __declspec(property(get = __fetch_z)) unsigned z;
 
   operator dim3() { return dim3{x, y, z}; }
+
+  static inline __attribute__((always_inline)) unsigned __fetch_x() {
+    return __acpp_sscp_get_group_id_x();
+  }
+
+  static inline __attribute__((always_inline)) unsigned __fetch_y() {
+    return __acpp_sscp_get_group_id_y();
+  }
+
+  static inline __attribute__((always_inline)) unsigned __fetch_z() {
+    return __acpp_sscp_get_group_id_z();
+  }
 };
 
 struct __pcudaBlockDim {
-  __declspec(property(get = __acpp_sscp_get_local_size_x)) unsigned x;
-  __declspec(property(get = __acpp_sscp_get_local_size_y)) unsigned y;
-  __declspec(property(get = __acpp_sscp_get_local_size_z)) unsigned z;
+  __declspec(property(get = __fetch_x)) unsigned x;
+  __declspec(property(get = __fetch_y)) unsigned y;
+  __declspec(property(get = __fetch_z)) unsigned z;
 
   operator dim3() { return dim3{x, y, z}; }
+
+  static inline __attribute__((always_inline)) unsigned __fetch_x() {
+    return __acpp_sscp_get_local_size_x();
+  }
+
+  static inline __attribute__((always_inline)) unsigned __fetch_y() {
+    return __acpp_sscp_get_local_size_y();
+  }
+
+  static inline __attribute__((always_inline)) unsigned __fetch_z() {
+    return __acpp_sscp_get_local_size_z();
+  }
 };
 
 struct __pcudaGridDim {
-  __declspec(property(get = __acpp_sscp_get_num_groups_x)) unsigned x;
-  __declspec(property(get = __acpp_sscp_get_num_groups_y)) unsigned y;
-  __declspec(property(get = __acpp_sscp_get_num_groups_z)) unsigned z;
+  __declspec(property(get = __fetch_x)) unsigned x;
+  __declspec(property(get = __fetch_y)) unsigned y;
+  __declspec(property(get = __fetch_z)) unsigned z;
 
   operator dim3() { return dim3{x, y, z}; }
+
+  static inline __attribute__((always_inline)) unsigned __fetch_x() {
+    return __acpp_sscp_get_local_size_x();
+  }
+
+  static inline __attribute__((always_inline)) unsigned __fetch_y() {
+    return __acpp_sscp_get_local_size_y();
+  }
+
+  static inline __attribute__((always_inline)) unsigned __fetch_z() {
+    return __acpp_sscp_get_local_size_z();
+  }
 };
+
+template<class F>
+[[clang::annotate("hipsycl_sscp_kernel")]]
+[[clang::annotate("hipsycl_sscp_outlining")]]
+[[clang::annotate("hipsycl_kernel_dimension", 3)]]
+void __pcuda_kernel(const F& f){
+  if (__acpp_sscp_is_device) {
+    F g = f;
+    g();
+  }
+}
+
+namespace __sscp_dispatch {
+
+template<class F>
+class pcuda_wrapper {
+public:
+  pcuda_wrapper(F f)
+  : _f {f} {}
+
+  void operator()() {
+    _f();
+  }
+private:
+  F _f;
+};
+
+}
 
 extern const __pcudaThreadIdx threadIdx;
 extern const __pcudaBlockIdx blockIdx;
@@ -83,78 +155,27 @@ extern const __pcudaGridDim gridDim;
 
 #define warpSize __acpp_sscp_get_subgroup_max_size()
 
-typedef enum pcudaError {
-  pcudaSuccess,
-  pcudaErrorMissingConfiguration,
-  pcudaErrorMemoryAllocation,
-  pcudaErrorInitializationError,
-  pcudaErrorLaunchFailure,
-  pcudaErrorPriorLaunchFailure,
-  pcudaErrorLaunchTimeout,
-  pcudaErrorLaunchOutOfResources,
-  pcudaErrorInvalidDeviceFunction,
-  pcudaErrorInvalidConfiguration,
-  pcudaErrorInvalidDevice,
-  pcudaErrorInvalidValue,
-  pcudaErrorInvalidPitchValue,
-  pcudaErrorInvalidSymbol,
-  pcudaErrorMapBufferObjectFailed,
-  pcudaErrorUnmapBufferObjectFailed,
-  pcudaErrorInvalidHostPointer,
-  pcudaErrorInvalidDevicePointer,
-  pcudaErrorInvalidTexture,
-  pcudaErrorInvalidTextureBinding,
-  pcudaErrorInvalidChannelDescriptor,
-  pcudaErrorInvalidMemcpyDirection,
-  pcudaErrorAddressOfConstant,
-  pcudaErrorTextureFetchFailed,
-  pcudaErrorTextureNotBound,
-  pcudaErrorSynchronizationError,
-  pcudaErrorInvalidFilterSetting,
-  pcudaErrorInvalidNormSetting,
-  pcudaErrorMixedDeviceExecution,
-  pcudaErrorCudartUnloading,
-  pcudaErrorUnknown,
-  pcudaErrorNotYetImplemented,
-  pcudaErrorMemoryValueTooLarge,
-  pcudaErrorInvalidResourceHandle,
-  pcudaErrorNotReady,
-  pcudaErrorInsufficientDriver,
-  pcudaErrorSetOnActiveProcess,
-  pcudaErrorInvalidSurface,
-  pcudaErrorNoDevice,
-  pcudaErrorECCUncorrectable,
-  pcudaErrorSharedObjectSymbolNotFound,
-  pcudaErrorSharedObjectInitFailed,
-  pcudaErrorUnsupportedLimit,
-  pcudaErrorDuplicateVariableName,
-  pcudaErrorDuplicateTextureName,
-  pcudaErrorDuplicateSurfaceName,
-  pcudaErrorDevicesUnavailable,
-  pcudaErrorInvalidKernelImage,
-  pcudaErrorNoKernelImageForDevice,
-  pcudaErrorIncompatibleDriverContext,
-  pcudaErrorPeerAccessAlreadyEnabled,
-  pcudaErrorPeerAccessNotEnabled,
-  pcudaErrorDeviceAlreadyInUse,
-  pcudaErrorProfilerDisabled,
-  pcudaErrorProfilerNotInitialized,
-  pcudaErrorProfilerAlreadyStarted,
-  pcudaErrorProfilerAlreadyStopped,
-  pcudaErrorStartupFailure,
-  pcudaErrorApiFailureBase
-} pcudaError_t;
+template <class F>
+inline pcudaError_t pcudaSubmit(dim3 grid, dim3 block, size_t shared_mem,
+                                pcudaStream_t stream, F f) {
+  __pcudaPushCallConfiguration(grid, block, shared_mem, stream);
+  __pcuda_kernel(__sscp_dispatch::pcuda_wrapper{f});
+  return pcudaGetLastError();
+}
 
-using pcudaStream_t = void*;
+template<class F>
+inline pcudaError_t pcudaSubmit(dim3 grid, dim3 block, size_t shared_mem, F f) {
+  return pcudaSubmit(grid, block, 0, nullptr, f);
+}
 
-ACPP_PCUDA_API void __pcudaPushCallConfiguration(dim3 grid, dim3 block,
-                                                 size_t shared_mem = 0,
-                                                 pcudaStream_t stream = nullptr);
-ACPP_PCUDA_API void __pcudaKernelCall(const char *kernel_name, void **args);
+template<class F>
+inline pcudaError_t pcudaSubmit(dim3 grid, dim3 block, F f) {
+  return pcudaSubmit(grid, block, 0, f);
+}
 
-ACPP_PCUDA_API pcudaError_t pcudaLaunchKernel(const void *func, dim3 grid,
-                                              dim3 block, void **args,
-                                              size_t shared_mem,
-                                              pcudaStream_t stream);
+#define PCUDA_KERNEL_NAME(...) __VA_ARGS__
+#define PCUDA_SYMBOL(X) X
+#define pcudaLaunchKernelGGL(kernel_name, grid, block, shared_mem, stream, ...) \
+  pcudaSubmit(grid, block, shared_mem, stream, [=](){ kernel_name(__VA_ARGS__); })
 
 #endif

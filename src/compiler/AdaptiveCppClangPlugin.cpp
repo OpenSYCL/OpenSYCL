@@ -164,7 +164,7 @@ extern "C" LLVM_ATTRIBUTE_WEAK ::llvm::PassPluginLibraryInfo llvmGetPassPluginIn
             PB.registerPipelineStartEPCallback(
                 [&](llvm::ModulePassManager &MPM, OptLevel Level) {
                   if(EnablePCuda) {
-                    // Must be run before target separation pass
+                    // Must be run before target separation pass!
                     MPM.addPass(FreeKernelCallPass{});
                   }
                   MPM.addPass(TargetSeparationPass{LLVMSSCPKernelOpts});
