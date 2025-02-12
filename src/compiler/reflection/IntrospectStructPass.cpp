@@ -11,6 +11,7 @@
 #include "hipSYCL/compiler/reflection/IntrospectStructPass.hpp"
 #include "hipSYCL/compiler/utils/AggregateTypeUtils.hpp"
 #include "hipSYCL/common/debug.hpp"
+#include "hipSYCL/compiler/LLVMUtils.hpp"
 #include <climits>
 #include <cstdint>
 #include <llvm/IR/Constants.h>
@@ -158,14 +159,6 @@ llvm::AllocaInst *recurseOperandUntilAlloca(llvm::Instruction *I) {
   } else {
     return nullptr;
   }
-}
-
-llvm::Type* getPointerType(llvm::Type* PointeeT, int AddressSpace) {
-#if LLVM_VERSION_MAJOR < 16
-    return llvm::PointerType::get(PointeeT, AddressSpace);
-#else
-    return llvm::PointerType::get(PointeeT->getContext(), AddressSpace);
-#endif
 }
 
 } // anonymous namespace

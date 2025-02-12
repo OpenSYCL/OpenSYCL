@@ -9,6 +9,7 @@
  */
 // SPDX-License-Identifier: BSD-2-Clause
 #include "hipSYCL/compiler/sscp/StdAtomicRemapperPass.hpp"
+#include "hipSYCL/compiler/LLVMUtils.hpp"
 #include "hipSYCL/common/debug.hpp"
 
 
@@ -67,14 +68,6 @@ memory_order llvmOrderingToAcppOrdering(llvm::AtomicOrdering AO) {
     return memory_order::acq_rel;
   else
     return memory_order::seq_cst;
-}
-
-llvm::Type* getPointerType(llvm::Type* PointeeT, int AddressSpace) {
-#if LLVM_VERSION_MAJOR < 16
-    return llvm::PointerType::get(PointeeT, AddressSpace);
-#else
-    return llvm::PointerType::get(PointeeT->getContext(), AddressSpace);
-#endif
 }
 
 template<class IntType>

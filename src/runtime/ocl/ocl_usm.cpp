@@ -11,6 +11,7 @@
 #include "hipSYCL/runtime/error.hpp"
 #include "hipSYCL/runtime/ocl/ocl_hardware_manager.hpp"
 #include "hipSYCL/runtime/ocl/ocl_usm.hpp"
+#include "hipSYCL/runtime/ocl/ocl_query.hpp"
 #include "hipSYCL/runtime/operations.hpp"
 
 #include <CL/opencl.hpp>
@@ -21,21 +22,6 @@
 namespace hipsycl {
 namespace rt {
 
-namespace {
-template<int Query, class ResultT>
-ResultT info_query(const cl::Device& dev) {
-  ResultT r{};
-  cl_int err = dev.getInfo(Query, &r);
-  if(err != CL_SUCCESS) {
-    register_error(
-          __acpp_here(),
-          error_info{"ocl_usm: Could not obtain device info",
-                    error_code{"CL", err}});
-  }
-  return r;
-}
-
-}
 
 class ocl_usm_intel_extension : public ocl_usm {
 public:

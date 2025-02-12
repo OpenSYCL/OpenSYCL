@@ -14,6 +14,7 @@
 #include "hipSYCL/runtime/hardware.hpp"
 #include "hipSYCL/runtime/ocl/ocl_allocator.hpp"
 #include "hipSYCL/runtime/ocl/ocl_hardware_manager.hpp"
+#include "hipSYCL/runtime/ocl/ocl_query.hpp"
 #include "hipSYCL/runtime/settings.hpp"
 
 #include <CL/cl.h>
@@ -35,19 +36,6 @@ namespace {
 constexpr std::array incompatible_ocl_platforms = {
     "NVIDIA CUDA", "Intel(R) FPGA Emulation Platform for OpenCL(TM)",
     "AMD Accelerated Parallel Processing"};
-
-template<int Query, class ResultT>
-ResultT info_query(const cl::Device& dev) {
-  ResultT r{};
-  cl_int err = dev.getInfo(Query, &r);
-  if(err != CL_SUCCESS) {
-    register_error(
-          __acpp_here(),
-          error_info{"ocl_hardware_context: Could not obtain device info",
-                    error_code{"CL", err}});
-  }
-  return r;
-}
 
 template<int Query, class ResultT>
 ResultT platform_info_query(const cl::Device& dev) {
