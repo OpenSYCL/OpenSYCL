@@ -14,7 +14,9 @@ else()
   set(base @loader_path)
 endif()
 
-add_subdirectory(common)
+if(NOT COMPILE_FOR_MICROCONTROLLERS)
+  add_subdirectory(common)
+endif()
 
 set(WITH_LLVM_TO_AMDGPU_AMDHSA false)
 set(WITH_LLVM_TO_PTX false)
@@ -53,7 +55,9 @@ endif()
 
 
 add_subdirectory(runtime)
-add_subdirectory(tools)
+if(COMPILE_TOOLS)
+  add_subdirectory(tools)
+endif()
 
 set(HIPSYCL_RT_LIBRARY_OUTPUT_NAME ${HIPSYCL_RT_LIBRARY_OUTPUT_NAME} PARENT_SCOPE)
 set(hipSYCL_OpenMP_CXX_LIBRARIES ${hipSYCL_OpenMP_CXX_LIBRARIES} PARENT_SCOPE)

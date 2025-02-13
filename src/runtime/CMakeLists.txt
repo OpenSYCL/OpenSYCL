@@ -22,16 +22,14 @@ set(HIPSYCL_RT_EXTRA_LINKER_FLAGS ${HIPSYCL_RT_EXTRA_LINKER_FLAGS} ${HIPSYCL_STD
 
 set(CMAKE_INSTALL_RPATH ${base} ${base}/hipSYCL)
 
-add_library(acpp-rt SHARED
+set(ACPP_RT_SOURCES
   allocator.cpp
   allocation_tracker.cpp
   application.cpp
   runtime.cpp
   error.cpp
   backend.cpp
-  backend_loader.cpp
   device_id.cpp
-  dylib_loader.cpp
   operations.cpp
   data.cpp
   inorder_executor.cpp
@@ -51,6 +49,15 @@ add_library(acpp-rt SHARED
   generic/async_worker.cpp
   hw_model/memcpy.cpp
   serialization/serialization.cpp)
+
+if(COMPILE_FOR_MICROCONTROLLERS)
+  add_library(acpp-rt STATIC ${ACPP_RT_SOURCES})
+else()
+  list(APPEND ACPP_RT_SOURCES
+    backend_loader.cpp
+    dylib_loader.cpp)
+  add_library(acpp-rt SHARED ${ACPP_RT_SOURCES})
+endif()
 
 target_compile_options(acpp-rt PRIVATE ${HIPSYCL_RT_EXTRA_CXX_FLAGS})
 target_link_libraries(acpp-rt PRIVATE ${HIPSYCL_RT_EXTRA_LINKER_FLAGS} acpp-common Threads::Threads)
@@ -274,12 +281,18 @@ if(WITH_OPENCL_BACKEND)
 endif()
 
 if(WITH_CPU_BACKEND)
-  add_library(rt-backend-omp SHARED
+  set(RT_BACKEND_OMP_SOURCES
     omp/omp_allocator.cpp
     omp/omp_backend.cpp
     omp/omp_event.cpp
     omp/omp_hardware_manager.cpp
     omp/omp_queue.cpp)
+
+  if(COMPILE_FOR_MICROCONTROLLERS)
+    add_library(rt-backend-omp STATIC ${RT_BACKEND_OMP_SOURCES})
+  else()
+    add_library(rt-backend-omp SHARED ${RT_BACKEND_OMP_SOURCES})
+  endif()
 
     # OMP_ROOT and/or OpenMP_ROOT is not defined by default on Mac
     if (APPLE)
