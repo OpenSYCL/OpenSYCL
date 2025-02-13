@@ -443,6 +443,7 @@ const code_object* kernel_cache::get_code_object_impl(code_object_id id) const {
   return it->second.get();
 }
 
+#ifndef COMPILE_FOR_MICROCONTROLLERS
 std::string kernel_cache::get_persistent_cache_file(code_object_id id_of_binary) {
   using namespace common::filesystem;
   std::string cache_dir = persistent_storage::get().get_jit_cache_dir();
@@ -509,6 +510,7 @@ void kernel_cache::persistent_cache_store(code_object_id id_of_binary,
         appdb.binaries[id_of_binary].jit_cache_filename = filename;
       });
 }
+#endif
 
 } // rt
 } // hipsycl

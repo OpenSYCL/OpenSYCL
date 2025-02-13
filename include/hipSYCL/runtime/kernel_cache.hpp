@@ -16,6 +16,7 @@
 #include <memory>
 #include <optional>
 #include <array>
+#include "hipSYCL/common/config.hpp"
 #include "hipSYCL/common/hcf_container.hpp"
 #include "hipSYCL/common/small_map.hpp"
 #include "hipSYCL/common/unordered_dense.hpp"
@@ -284,6 +285,7 @@ public:
     return get_or_construct_code_object_impl(id, c);
   }
 
+#ifndef COMPILE_FOR_MICROCONTROLLERS
   /// Obtain or construct code objects. This is for code objects
   /// which rely on AdaptiveCpp-handled JIT compilation.
   /// In order to implement optimizations such as persistent on-disk kernel cache,
@@ -345,14 +347,18 @@ public:
     return new_object;
   }
 
+  // Stitches together the persistent cache path with the id of the binary to a unique path.
+  static std::string get_persistent_cache_file(code_object_id id_of_binary);
+#endif
+
   // Unload entire cache and release resources to prepare runtime shutdown.
   void unload();
 
-  // Stitches together the persisten cache path with the id of the binary to a unique path.
-  static std::string get_persistent_cache_file(code_object_id id_of_binary);
 private:
+#ifndef COMPILE_FOR_MICROCONTROLLERS
   bool persistent_cache_lookup(code_object_id id_of_binary, std::string& out) const;
   void persistent_cache_store(code_object_id id_of_binary, const std::string& data) const;
+#endif
   
   const code_object* get_code_object_impl(code_object_id id) const;
 
