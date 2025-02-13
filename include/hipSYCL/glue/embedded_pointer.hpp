@@ -29,11 +29,22 @@ namespace detail {
 
 template<class T>
 inline T random_number() {
+#ifndef _MIOSIX
   thread_local std::random_device rd;
   thread_local std::mt19937 gen{rd()};
   thread_local std::uniform_int_distribution<T> distribution{0};
 
   return distribution(gen);
+#else //_MIOSIX
+  static uint64_t x = 1970835257944453882ull;
+  asm volatile("cpsid i":::"memory");
+  x ^= x >> 12;
+  x ^= x << 25;
+  x ^= x >> 27;
+  uint64_t result = x * 2685821657736338717ull;
+  asm volatile("cpsie i":::"memory");
+  return (T) result;
+#endif //_MIOSIX
 }
 
 }
@@ -42,7 +53,7 @@ struct unique_id {
   static constexpr std::size_t num_components = 2;
 
   ACPP_UNIVERSAL_TARGET
-  unique_id(uint64_t init_value) {
+  unique_id(uintptr_t init_value) {
     for(std::size_t i=0; i < num_components; ++i){
       id[i] = init_value;
     }
@@ -61,7 +72,7 @@ struct unique_id {
       char* ns_bytes = reinterpret_cast<char*>(&ns);
       char* rnd_bytes = reinterpret_cast<char*>(&random_number);
 
-      for(int i = 0; i < sizeof(uint64_t); ++i) {
+      for(int i = 0; i < sizeof(uintptr_t); ++i) {
         char *id_bytes = reinterpret_cast<char*>(&id[0]);
         id_bytes[2 * i    ] = ns_bytes[i];
         id_bytes[2 * i + 1] = rnd_bytes[i];
@@ -90,7 +101,7 @@ struct unique_id {
   unique_id(const unique_id&) = default;
   unique_id& operator=(const unique_id&) = default;
 
-  alignas(8) uint64_t id [num_components];
+  alignas(sizeof(uintptr_t)) uintptr_t id [num_components];
 };
 
 inline std::ostream &operator<<(std::ostream &ostr, const unique_id &id) {
@@ -170,7 +181,7 @@ struct kernel_blob {
                           << ptr << std::endl;
         // Zero out detected embedded pointer
         std::memset(chunk_ptr, 0, sizeof(unique_id));
-        // Set first 8 bytes of embedded pointer to ptr
+        // Set first bytes of embedded pointer to ptr
         std::memcpy(chunk_ptr, &ptr, sizeof(void*));
         
         found = true;
