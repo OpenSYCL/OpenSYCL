@@ -15,6 +15,7 @@
 
 #include "hipSYCL/glue/llvm-sscp/s1_ir_constants.hpp"
 #include "hipSYCL/glue/llvm-sscp/hcf_registration.hpp"
+#include "hipSYCL/sycl/libkernel/backend.hpp"
 #include "hipSYCL/sycl/libkernel/sscp/builtins/core.hpp"
 #include "hipSYCL/sycl/libkernel/sscp/builtins/subgroup.hpp"
 #include <cstddef>
@@ -22,7 +23,7 @@
 #include "pcuda_runtime.hpp"
 
 #ifndef __device__
-#define __device__
+#define __device__ [[clang::annotate("hipsycl_sscp_outlining")]]
 #endif
 
 #ifndef __host__
@@ -37,7 +38,9 @@
 
 
 
-
+#define PCUDA_BUILTIN_CALL(builtin) if(__acpp_sscp_is_device){builtin;}
+#define PCUDA_BUILTIN_CALL_RESULT(builtin, fallback)                           \
+  (__acpp_sscp_is_device ? (builtin) : (fallback))
 
 // needs -fdeclspec
 struct __pcudaThreadIdx {
@@ -48,15 +51,15 @@ struct __pcudaThreadIdx {
   operator dim3() { return dim3{x, y, z}; }
 
   static inline __attribute__((always_inline)) unsigned __fetch_x() {
-    return __acpp_sscp_get_local_id_x();
+    return PCUDA_BUILTIN_CALL_RESULT(__acpp_sscp_get_local_id_x(), 0);
   }
 
   static inline __attribute__((always_inline)) unsigned __fetch_y() {
-    return __acpp_sscp_get_local_id_y();
+    return PCUDA_BUILTIN_CALL_RESULT(__acpp_sscp_get_local_id_y(), 0);
   }
 
   static inline __attribute__((always_inline)) unsigned __fetch_z() {
-    return __acpp_sscp_get_local_id_z();
+    return PCUDA_BUILTIN_CALL_RESULT(__acpp_sscp_get_local_id_z(), 0);
   }
 };
 
@@ -68,15 +71,15 @@ struct __pcudaBlockIdx {
   operator dim3() { return dim3{x, y, z}; }
 
   static inline __attribute__((always_inline)) unsigned __fetch_x() {
-    return __acpp_sscp_get_group_id_x();
+    return PCUDA_BUILTIN_CALL_RESULT(__acpp_sscp_get_group_id_x(), 0);
   }
 
   static inline __attribute__((always_inline)) unsigned __fetch_y() {
-    return __acpp_sscp_get_group_id_y();
+    return PCUDA_BUILTIN_CALL_RESULT(__acpp_sscp_get_group_id_y(), 0);
   }
 
   static inline __attribute__((always_inline)) unsigned __fetch_z() {
-    return __acpp_sscp_get_group_id_z();
+    return PCUDA_BUILTIN_CALL_RESULT(__acpp_sscp_get_group_id_z(), 0);
   }
 };
 
@@ -88,15 +91,15 @@ struct __pcudaBlockDim {
   operator dim3() { return dim3{x, y, z}; }
 
   static inline __attribute__((always_inline)) unsigned __fetch_x() {
-    return __acpp_sscp_get_local_size_x();
+    return PCUDA_BUILTIN_CALL_RESULT(__acpp_sscp_get_local_size_x(), 0);
   }
 
   static inline __attribute__((always_inline)) unsigned __fetch_y() {
-    return __acpp_sscp_get_local_size_y();
+    return PCUDA_BUILTIN_CALL_RESULT(__acpp_sscp_get_local_size_y(), 0);
   }
 
   static inline __attribute__((always_inline)) unsigned __fetch_z() {
-    return __acpp_sscp_get_local_size_z();
+    return PCUDA_BUILTIN_CALL_RESULT(__acpp_sscp_get_local_size_z(), 0);
   }
 };
 
@@ -108,15 +111,15 @@ struct __pcudaGridDim {
   operator dim3() { return dim3{x, y, z}; }
 
   static inline __attribute__((always_inline)) unsigned __fetch_x() {
-    return __acpp_sscp_get_local_size_x();
+    return PCUDA_BUILTIN_CALL_RESULT(__acpp_sscp_get_local_size_x(), 0);
   }
 
   static inline __attribute__((always_inline)) unsigned __fetch_y() {
-    return __acpp_sscp_get_local_size_y();
+    return PCUDA_BUILTIN_CALL_RESULT(__acpp_sscp_get_local_size_y(), 0);
   }
 
   static inline __attribute__((always_inline)) unsigned __fetch_z() {
-    return __acpp_sscp_get_local_size_z();
+    return PCUDA_BUILTIN_CALL_RESULT(__acpp_sscp_get_local_size_z(), 0);
   }
 };
 
@@ -153,7 +156,12 @@ extern const __pcudaBlockIdx blockIdx;
 extern const __pcudaBlockDim blockDim;
 extern const __pcudaGridDim gridDim;
 
-#define warpSize __acpp_sscp_get_subgroup_max_size()
+
+inline int __pcuda_warp_size() {
+  return PCUDA_BUILTIN_CALL_RESULT(
+      static_cast<int>(__acpp_sscp_get_subgroup_max_size()), 0);
+}
+#define warpSize __pcuda_warp_size()
 
 template <class F>
 inline pcudaError_t pcudaSubmit(dim3 grid, dim3 block, size_t shared_mem,

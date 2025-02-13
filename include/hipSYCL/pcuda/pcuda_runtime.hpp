@@ -91,13 +91,22 @@ ACPP_PCUDA_API pcudaError_t __pcudaKernelCall(const char *kernel_name,
                                               void **args,
                                               std::size_t hcf_object);
 
-ACPP_PCUDA_API pcudaError_t pcudaLaunchKernel(const void *func, dim3 grid,
-                                              dim3 block, void **args,
-                                              size_t shared_mem,
-                                              pcudaStream_t stream);
+
+ACPP_PCUDA_API pcudaError_t pcudaGetDeviceCount(int* count);
+ACPP_PCUDA_API pcudaError_t pcudaGetDevice(int* dev);
+ACPP_PCUDA_API pcudaError_t pcudaSetDevice(int dev);
+
+ACPP_PCUDA_API pcudaError_t pcudaGetPlatformCount(int* count);
+ACPP_PCUDA_API pcudaError_t pcudaGetPlatform(int* platform);
+ACPP_PCUDA_API pcudaError_t pcudaSetPlatform(int platform);
+
+ACPP_PCUDA_API pcudaError_t pcudaGetBackendCount(int* count);
+ACPP_PCUDA_API pcudaError_t pcudaGetBackend(int* platform);
+ACPP_PCUDA_API pcudaError_t pcudaSetBackend(int platform);
 
 ACPP_PCUDA_API pcudaError_t pcudaGetLastError();
 
+ACPP_PCUDA_API pcudaError_t pcudaDeviceSynchronize();
 
 
 #endif
