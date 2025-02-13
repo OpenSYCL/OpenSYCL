@@ -12,6 +12,7 @@
 #define ACPP_ALLOCATION_MAP_HPP
 
 
+#include "hipSYCL/common/config.hpp"
 #include <cstddef>
 #include <cstdlib>
 #include <cstdint>
@@ -94,7 +95,9 @@ class allocation_map : public allocation_map_bit_tree_config<UntypedAllocatorT> 
 public:
   using bit_tree_t = allocation_map_bit_tree_config<UntypedAllocatorT>;
 
+#ifndef COMPILE_FOR_MICROCONTROLLERS
   static_assert(sizeof(void*) == 8, "Unsupported pointer size");
+#endif
   static_assert(std::is_trivial_v<UserPayload>, "UserPayload must be trivial type");
 
   allocation_map()
