@@ -50,6 +50,8 @@ void *omp_allocator::raw_allocate(size_t min_alignment, size_t size_bytes) {
     // but it's unclear if it's a Mac, or libc++, or toolchain issue
 #ifdef __APPLE__
   return aligned_alloc(min_alignment, size_bytes);
+#elif defined(_MIOSIX)
+  return malloc(size_bytes);
 #elif !defined(_WIN32)
   return std::aligned_alloc(min_alignment, size_bytes);
 #else
