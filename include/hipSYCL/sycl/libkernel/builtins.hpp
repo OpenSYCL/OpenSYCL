@@ -119,6 +119,18 @@ using schar4 = vec<signed char, 4>;
 using schar8 = vec<signed char, 8>;
 using schar16 = vec<signed char, 16>;
 
+using int2 = vec<int, 2>;
+using int3 = vec<int, 3>;
+using int4 = vec<int, 4>;
+using int8 = vec<int, 8>;
+using int16 = vec<int, 16>;
+
+using uint2 = vec<unsigned int, 2>;
+using uint3 = vec<unsigned int, 3>;
+using uint4 = vec<unsigned int, 4>;
+using uint8 = vec<unsigned int, 8>;
+using uint16 = vec<unsigned int, 16>;
+
 using long2 = vec<long, 2>;
 using long3 = vec<long, 3>;
 using long4 = vec<long, 4>;
@@ -267,11 +279,11 @@ using ulonglong16 = vec<unsigned long long, 16>;
   // TODO: marray
 
 #define HIPSYCL_BUILTIN_OVERLOAD_SET_UINTN(handler, name, builtin_impl_name) \
-  handler(sycl::uint2, name, builtin_impl_name)                              \
-  handler(sycl::uint3, name, builtin_impl_name)                              \
-  handler(sycl::uint4, name, builtin_impl_name)                              \
-  handler(sycl::uint8, name, builtin_impl_name)                              \
-  handler(sycl::uint16, name, builtin_impl_name)
+  handler(detail::uint2, name, builtin_impl_name)                              \
+  handler(detail::uint3, name, builtin_impl_name)                              \
+  handler(detail::uint4, name, builtin_impl_name)                              \
+  handler(detail::uint8, name, builtin_impl_name)                              \
+  handler(detail::uint16, name, builtin_impl_name)
   // TODO: marray
 
 #define HIPSYCL_BUILTIN_OVERLOAD_SET_UGENINT(handler, name, builtin_impl_name) \
@@ -280,11 +292,11 @@ using ulonglong16 = vec<unsigned long long, 16>;
   // TODO: marray
 
 #define HIPSYCL_BUILTIN_OVERLOAD_SET_INTN(handler, name, builtin_impl_name) \
-  handler(sycl::int2, name, builtin_impl_name)                              \
-  handler(sycl::int3, name, builtin_impl_name)                              \
-  handler(sycl::int4, name, builtin_impl_name)                              \
-  handler(sycl::int8, name, builtin_impl_name)                              \
-  handler(sycl::int16, name, builtin_impl_name)
+  handler(detail::int2, name, builtin_impl_name)                              \
+  handler(detail::int3, name, builtin_impl_name)                              \
+  handler(detail::int4, name, builtin_impl_name)                              \
+  handler(detail::int8, name, builtin_impl_name)                              \
+  handler(detail::int16, name, builtin_impl_name)
   // TODO: marray
 
 #define HIPSYCL_BUILTIN_OVERLOAD_SET_GENINT(handler, name, builtin_impl_name) \
