@@ -184,7 +184,7 @@ inline void parallel_for_ndrange_kernel(
       iterate_nd_range_omp(f, std::move(group_id), num_groups, local_size, offset,
         num_local_mem_bytes, &group_shared_memory_ptr, barrier_impl);
     });
-#elif defined(HIPSYCL_HAS_FIBERS)
+#elif defined(ACPP_HAS_FIBERS)
     host::static_range_decomposition<Dim> group_decomposition{
         num_groups, get_num_threads()};
 
@@ -326,7 +326,7 @@ public:
             Kernel k) {
 
     this->_type = type;
-#if !defined(HIPSYCL_HAS_FIBERS) && !defined(__ACPP_USE_ACCELERATED_CPU__)
+#if !defined(ACPP_HAS_FIBERS) && !defined(__ACPP_USE_ACCELERATED_CPU__)
     if (type == rt::kernel_type::ndrange_parallel_for) {
       this->_invoker = [](rt::dag_node* node) {};
 

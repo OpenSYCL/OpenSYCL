@@ -1,15 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
 
-if(POLICY CMP0074) # Since CMake 3.12
-  cmake_policy(SET CMP0074 NEW) # Don't complain about using BOOST_ROOT...
-endif()
-if(POLICY CMP0167) # Since CMake 3.30
-    # Suppress warning: "Policy CMP0167 is not set: The FindBoost module is removed."
-    # Set CMP0167 to OLD to avoid breakage in the Windows & macOS CI tests.
-    cmake_policy(SET CMP0167 OLD)
-endif()
-
-
 set(ACPP_VERSION_MAJOR 24)
 set(ACPP_VERSION_MINOR 10)
 set(ACPP_VERSION_PATCH 0)
@@ -92,16 +82,6 @@ FORCE)
       "Choose the debug level, options are: 0 (no debug), 1 (print errors), 2 (also print warnings), 3 (also print general information)"
 FORCE)
   endif()
-endif()
-
-if (NOT ${BOOST_ROOT} STREQUAL "")
-  set(ENV{BOOST_ROOT} ${BOOST_ROOT})
-endif()
-
-find_package(Boost COMPONENTS context fiber )
-
-if(NOT Boost_FOUND)
-  message(FATAL_ERROR "Please provide the path to the root directory of the boost installation using the -DBOOST_ROOT option")
 endif()
 
 # Check for CUDA/ROCm and clang
@@ -377,27 +357,8 @@ else()
   set(ACPP_CONFIG_FILE_INSTALL_DIR etc/AdaptiveCpp)
 endif()
 
-if(Boost_FIBER_LIBRARY_DEBUG)
-  get_filename_component(Boost_LIBRARY_DIR "${Boost_FIBER_LIBRARY_DEBUG}" DIRECTORY)
-elseif(Boost_FIBER_LIBRARY_RELEASE)
-  get_filename_component(Boost_LIBRARY_DIR "${Boost_FIBER_LIBRARY_RELEASE}" DIRECTORY)
-else()
-  get_target_property(FIBER_IMPORT_LIBRARY Boost::fiber IMPORTED_LOCATION_DEBUG)
-  if(NOT FIBER_IMPORT_LIBRARY)
-    get_target_property(FIBER_IMPORT_LIBRARY Boost::fiber IMPORTED_LOCATION_RELEASE)
-  endif()
-  get_filename_component(Boost_LIBRARY_DIR "${FIBER_IMPORT_LIBRARY}" DIRECTORY)
-  get_target_property(Boost_INCLUDE_DIR Boost::fiber INTERFACE_INCLUDE_DIRECTORIES)
-endif()
-
 if(APPLE)
   set(DEFAULT_OMP_FLAG "-Xclang -fopenmp")
-
-  if(Boost_FIBER_LIBRARY_DEBUG)
-    set(DEFAULT_BOOST_LIBRARIES "${Boost_CONTEXT_LIBRARY_DEBUG} ${Boost_FIBER_LIBRARY_DEBUG} -Wl,-rpath ${Boost_LIBRARY_DIR}")
-  else()
-    set(DEFAULT_BOOST_LIBRARIES "${Boost_CONTEXT_LIBRARY_RELEASE} ${Boost_FIBER_LIBRARY_RELEASE} -Wl,-rpath ${Boost_LIBRARY_DIR}")
-  endif()
 else()
   set(DEFAULT_OMP_FLAG "-fopenmp")
 endif()
@@ -423,21 +384,14 @@ else()
   set(DEFAULT_LINK_PREFIX "-l")
 endif()
 
-if(CMAKE_BUILD_TYPE MATCHES Debug)
-  get_filename_component(Boost_CONTEXT_LIBRARY_NAME "${Boost_CONTEXT_LIBRARY_DEBUG}" NAME)
-  get_filename_component(Boost_FIBER_LIBRARY_NAME "${Boost_FIBER_LIBRARY_DEBUG}" NAME)
-else()
-  get_filename_component(Boost_CONTEXT_LIBRARY_NAME "${Boost_CONTEXT_LIBRARY_RELEASE}" NAME)
-  get_filename_component(Boost_FIBER_LIBRARY_NAME "${Boost_FIBER_LIBRARY_RELEASE}" NAME)
-endif()
-set(DEFAULT_WIN32_OMP_LINK_LINE "-L${Boost_LIBRARY_DIR} ${DEFAULT_LINK_PREFIX}${Boost_CONTEXT_LIBRARY_NAME} ${DEFAULT_LINK_PREFIX}${Boost_FIBER_LIBRARY_NAME} ${DEFAULT_OMP_FLAG}")
-set(DEFAULT_WIN32_SEQUENTIAL_LINK_LINE "-L${Boost_LIBRARY_DIR} ${DEFAULT_LINK_PREFIX}${Boost_CONTEXT_LIBRARY_NAME} ${DEFAULT_LINK_PREFIX}${Boost_FIBER_LIBRARY_NAME} -llibomp")
+set(DEFAULT_WIN32_OMP_LINK_LINE "${DEFAULT_OMP_FLAG}")
+set(DEFAULT_WIN32_SEQUENTIAL_LINK_LINE "-llibomp")
 
 # need add_subdirectory(src) before this!
-set(DEFAULT_APPLE_OMP_LINK_LINE "${DEFAULT_BOOST_LIBRARIES} ${DEFAULT_OMP_FLAG} ${hipSYCL_OpenMP_CXX_LIBRARIES}")
-set(DEFAULT_APPLE_SEQUENTIAL_LINK_LINE "${DEFAULT_BOOST_LIBRARIES} ${hipSYCL_OpenMP_CXX_LIBRARIES}")
-set(DEFAULT_OMP_LINK_LINE "-L${Boost_LIBRARY_DIR} -lboost_context -lboost_fiber -Wl,-rpath=${Boost_LIBRARY_DIR} ${DEFAULT_OMP_FLAG}")
-set(DEFAULT_SEQUENTIAL_LINK_LINE "-L${Boost_LIBRARY_DIR} -lboost_context -lboost_fiber -Wl,-rpath=${Boost_LIBRARY_DIR}")
+set(DEFAULT_APPLE_OMP_LINK_LINE "${DEFAULT_OMP_FLAG} ${hipSYCL_OpenMP_CXX_LIBRARIES}")
+set(DEFAULT_APPLE_SEQUENTIAL_LINK_LINE "${hipSYCL_OpenMP_CXX_LIBRARIES}")
+set(DEFAULT_OMP_LINK_LINE "${DEFAULT_OMP_FLAG}")
+set(DEFAULT_SEQUENTIAL_LINK_LINE "")
 
 # If no link lines given, set to default.
 if(WIN32)
@@ -500,11 +454,11 @@ endif()
 
 # always need -D_ENABLE_EXTENDED_ALIGNED_STORAGE to allow correctly aligned local memory on CPU
 if(NOT OMP_CXX_FLAGS)
-  set(OMP_CXX_FLAGS "-I${Boost_INCLUDE_DIR} ${DEFAULT_OMP_FLAG} -D_ENABLE_EXTENDED_ALIGNED_STORAGE" CACHE STRING "Arguments passed to compiler to compile SYCL applications with OpenMP")
+  set(OMP_CXX_FLAGS "${DEFAULT_OMP_FLAG} -D_ENABLE_EXTENDED_ALIGNED_STORAGE" CACHE STRING "Arguments passed to compiler to compile SYCL applications with OpenMP")
 endif()
 
 if(NOT SEQUENTIAL_CXX_FLAGS)
-  set(SEQUENTIAL_CXX_FLAGS "-I${Boost_INCLUDE_DIR} -D_ENABLE_EXTENDED_ALIGNED_STORAGE" CACHE STRING "Arguments passed to compiler to compile SYCL applications on host")
+  set(SEQUENTIAL_CXX_FLAGS "-D_ENABLE_EXTENDED_ALIGNED_STORAGE" CACHE STRING "Arguments passed to compiler to compile SYCL applications on host")
 endif()
 
 if(BUILD_CLANG_PLUGIN)
