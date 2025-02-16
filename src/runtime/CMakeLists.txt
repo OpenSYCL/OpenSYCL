@@ -123,6 +123,7 @@ if(WITH_CUDA_BACKEND)
 
   target_include_directories(rt-backend-cuda PRIVATE
     ${HIPSYCL_SOURCE_DIR}/include
+    ${PROJECT_BINARY_DIR}/include
     ${CUDA_TOOLKIT_ROOT_DIR}/include)
   
   target_link_libraries(rt-backend-cuda PRIVATE acpp-rt ${CUDA_LIBS})
@@ -163,7 +164,9 @@ if(WITH_ROCM_BACKEND)
   if(ENABLE_ROCM_UNIFIED_MEMORY_API)
     target_compile_definitions(rt-backend-hip PRIVATE HIPSYCL_RT_HIP_SUPPORTS_UNIFIED_MEMORY=1)
   endif()
-  target_include_directories(rt-backend-hip PRIVATE ${HIPSYCL_SOURCE_DIR}/include)
+  target_include_directories(rt-backend-hip PRIVATE
+    ${HIPSYCL_SOURCE_DIR}/include
+    ${PROJECT_BINARY_DIR}/include)
   if(NOT HIP_FOUND)
     target_include_directories(rt-backend-hip PRIVATE ${ROCM_PATH}/include)
     target_link_libraries(rt-backend-hip PRIVATE ${ROCM_LIBS})
@@ -200,7 +203,9 @@ if(WITH_LEVEL_ZERO_BACKEND)
     ze/ze_queue.cpp
     ze/ze_code_object.cpp)
   
-  target_include_directories(rt-backend-ze PRIVATE ${HIPSYCL_SOURCE_DIR}/include)
+  target_include_directories(rt-backend-ze PRIVATE
+    ${HIPSYCL_SOURCE_DIR}/include
+    ${PROJECT_BINARY_DIR}/include)
   target_link_libraries(rt-backend-ze PRIVATE acpp-rt -lze_loader)
 
   target_compile_options(rt-backend-ze PRIVATE ${HIPSYCL_RT_EXTRA_CXX_FLAGS})
@@ -259,7 +264,9 @@ if(WITH_OPENCL_BACKEND)
     ocl/ocl_event.cpp
     ocl/ocl_queue.cpp)
 
-  target_include_directories(rt-backend-ocl PRIVATE ${HIPSYCL_SOURCE_DIR}/include)
+  target_include_directories(rt-backend-ocl PRIVATE
+    ${HIPSYCL_SOURCE_DIR}/include
+    ${PROJECT_BINARY_DIR}/include)
   target_link_libraries(rt-backend-ocl PRIVATE acpp-rt ${OpenCL_LIBRARIES} ocl-headers ocl-cxx-headers)
 
   target_compile_options(rt-backend-ocl PRIVATE ${HIPSYCL_RT_EXTRA_CXX_FLAGS})
