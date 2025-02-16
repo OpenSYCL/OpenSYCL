@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
 
+if(POLICY CMP0074) # Since CMake 3.12
+    cmake_policy(SET CMP0074 NEW) # Respect OpenMP_ROOT etc
+endif()
+
 set(ACPP_VERSION_MAJOR 24)
 set(ACPP_VERSION_MINOR 10)
 set(ACPP_VERSION_PATCH 0)
