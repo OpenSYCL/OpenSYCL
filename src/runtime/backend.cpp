@@ -25,7 +25,7 @@ backend_manager::backend_manager()
   : _hw_model(std::make_unique<hw_model>(this)),
     _kernel_cache{kernel_cache::get()}
 {
-
+#ifndef COMPILE_FOR_MICROCONTROLLERS
   _loader.query_backends();
 
   for (std::size_t backend_index = 0;
@@ -41,6 +41,10 @@ backend_manager::backend_manager()
       HIPSYCL_DEBUG_ERROR << "backend_manager: Backend creation failed" << std::endl;
     }
   }
+#else
+  backend *b = hipsycl_backend_plugin_create();
+  _backends.emplace_back(std::unique_ptr<backend>(b));
+#endif
   
   this->for_each_backend([](backend *b) {
     HIPSYCL_DEBUG_INFO << "Discovered devices from backend '" << b->get_name()

@@ -18,6 +18,7 @@
 
 #include "device_id.hpp"
 #include "backend_loader.hpp"
+#include "hipSYCL/common/config.hpp"
 
 namespace hipsycl {
 namespace rt {
@@ -82,7 +83,9 @@ public:
   }
 
 private:
+#ifndef COMPILE_FOR_MICROCONTROLLERS
   backend_loader _loader;
+#endif
   backend_list_type _backends;
 
   std::unique_ptr<hw_model> _hw_model;

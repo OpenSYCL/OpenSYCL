@@ -753,42 +753,50 @@ class acpp_config:
 
   @property
   def sequential_link_line(self):
-    components = self._retrieve_option("sequential-link-line", allow_unset=True).split(' ')
+    option_value = self._retrieve_option("sequential-link-line", allow_unset=True)
+    components = option_value.split(' ') if option_value else []
     return [self._substitute_omp_template_string(arg) for arg in components]
 
   @property
   def sequential_cxx_flags(self):
-    components = self._retrieve_option("sequential-cxx-flags", allow_unset=False).split(' ')
+    option_value = self._retrieve_option("sequential-cxx-flags", allow_unset=True)
+    components = option_value.split(' ') if option_value else []
     return [self._substitute_omp_template_string(arg) for arg in components]
 
   @property
   def omp_link_line(self):
-    components = self._retrieve_option("omp-link-line", allow_unset=True).split(' ')
+    option_value = self._retrieve_option("omp-link-line", allow_unset=True)
+    components = option_value.split(' ') if option_value else []
     return [self._substitute_omp_template_string(arg) for arg in components]
 
   @property
   def omp_cxx_flags(self):
-    components = self._retrieve_option("omp-cxx-flags", allow_unset=True).split(' ')
+    option_value = self._retrieve_option("omp-cxx-flags", allow_unset=True)
+    components = option_value.split(' ') if option_value else []
     return [self._substitute_omp_template_string(arg) for arg in components]
 
   @property
   def rocm_link_line(self):
-    components = self._retrieve_option("rocm-link-line", allow_unset=True).split(' ')
+    option_value = self._retrieve_option("rocm-link-line", allow_unset=True)
+    components = option_value.split(' ') if option_value else []
     return [self._substitute_rocm_template_string(arg) for arg in components]
 
   @property
   def rocm_cxx_flags(self):
-    components = self._retrieve_option("rocm-cxx-flags", allow_unset=True).split(' ')
+    option_value = self._retrieve_option("rocm-cxx-flags", allow_unset=True)
+    components = option_value.split(' ') if option_value else []
     return [self._substitute_rocm_template_string(arg) for arg in components]
 
   @property
   def cuda_link_line(self):
-    components = self._retrieve_option("cuda-link-line", allow_unset=True).split(' ')
+    option_value = self._retrieve_option("cuda-link-line", allow_unset=True)
+    components = option_value.split(' ') if option_value else []
     return [self._substitute_cuda_template_string(arg) for arg in components]
 
   @property
   def cuda_cxx_flags(self):
-    components = self._retrieve_option("cuda-cxx-flags", allow_unset=True).split(' ')
+    option_value = self._retrieve_option("cuda-cxx-flags", allow_unset=True)
+    components = option_value.split(' ') if option_value else []
     return [self._substitute_cuda_template_string(arg) for arg in components]
 
   @property
@@ -861,6 +869,10 @@ class acpp_config:
       return self._is_flag_set("should-save-temps")
     except OptionNotSet:
       return False
+
+  @property
+  def compile_for_microcontrollers(self):
+    return self._interpret_flag(self._config_db.get("compile-for-microcontrollers"))
 
   @property
   def common_compiler_args(self):
@@ -1622,6 +1634,7 @@ class compiler:
     self._acpp_include_path = config.acpp_include_path
     self._is_explicit_multipass = config.is_explicit_multipass
     self._save_temps = config.save_temps
+    self._compile_for_microcontrollers = config.compile_for_microcontrollers
     self._host_compiler = ""
     self._is_stdpar = config.is_stdpar
     self._is_stdpar_system_usm = config.is_stdpar_system_usm
@@ -1854,14 +1867,23 @@ class compiler:
   def common_linker_flags(self):
     linker_args = [
       "-L"+self._acpp_lib_path,
-      "-lacpp-rt"
     ]
 
-    if sys.platform == "darwin":
-      linker_args.append("-Wl,-rpath")
-      linker_args.append(self._acpp_lib_path)
-    elif not sys.platform.startswith("win32"):
-      linker_args.append("-Wl,-rpath="+self._acpp_lib_path)
+    if self._compile_for_microcontrollers:
+      linker_args.append("-L"+self._acpp_lib_path+"hipSYCL/")
+      linker_args.append("-Wl,--start-group")
+      linker_args.append("-lacpp-rt")
+      linker_args.append("-lrt-backend-omp")
+      linker_args.append("-Wl,--end-group")
+    else:
+      linker_args.append("-lacpp-rt")
+
+      if sys.platform == "darwin":
+        linker_args.append("-Wl,-rpath")
+        linker_args.append(self._acpp_lib_path)
+      elif not sys.platform.startswith("win32"):
+        linker_args.append("-Wl,-rpath="+self._acpp_lib_path)
+
     return linker_args
 
   def _run_device_passes(self, temp_dir, multipass_backend):

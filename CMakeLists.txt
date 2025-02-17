@@ -94,14 +94,24 @@ FORCE)
   endif()
 endif()
 
-if (NOT ${BOOST_ROOT} STREQUAL "")
-  set(ENV{BOOST_ROOT} ${BOOST_ROOT})
+option(COMPILE_FOR_MICROCONTROLLERS "Compile acpp for microcontrollers" OFF)
+
+set(COMPILE_TOOLS_DEFAULT ON)
+if(COMPILE_FOR_MICROCONTROLLERS)
+  set(COMPILE_TOOLS_DEFAULT OFF)
 endif()
+option(COMPILE_TOOLS "Compile acpp tools" ${COMPILE_TOOLS_DEFAULT})
 
-find_package(Boost COMPONENTS context fiber )
+if(NOT COMPILE_FOR_MICROCONTROLLERS)
+  if(NOT ${BOOST_ROOT} STREQUAL "")
+    set(ENV{BOOST_ROOT} ${BOOST_ROOT})
+  endif()
 
-if(NOT Boost_FOUND)
-  message(FATAL_ERROR "Please provide the path to the root directory of the boost installation using the -DBOOST_ROOT option")
+  find_package(Boost COMPONENTS context fiber )
+
+  if(NOT Boost_FOUND)
+    message(FATAL_ERROR "Please provide the path to the root directory of the boost installation using the -DBOOST_ROOT option")
+  endif()
 endif()
 
 # Check for CUDA/ROCm and clang
@@ -111,7 +121,7 @@ find_package(HIP QUIET HINTS ${ROCM_PATH} ${ROCM_PATH}/lib/cmake)
 
 #set(WITH_CUDA_NVCXX_ONLY FALSE CACHE BOOL "(Deprecated) Whether to target CUDA exclusively with nvc++")
 
-if(APPLE OR WIN32)
+if(APPLE OR WIN32 OR COMPILE_FOR_MICROCONTROLLERS)
   set(DEFAULT_COMPILER_FEATURES_ENABLED false)
   set(ACPP_COMPILER_FEATURE_PROFILE "none" CACHE STRING "The level of AdaptiveCpp compiler features to enable. If not set to 'full', AdaptiveCpp will run in a degraded mode that may have implications for certain functionalities or performance in certain cases.")
 else()
@@ -377,26 +387,30 @@ else()
   set(ACPP_CONFIG_FILE_INSTALL_DIR etc/AdaptiveCpp)
 endif()
 
-if(Boost_FIBER_LIBRARY_DEBUG)
-  get_filename_component(Boost_LIBRARY_DIR "${Boost_FIBER_LIBRARY_DEBUG}" DIRECTORY)
-elseif(Boost_FIBER_LIBRARY_RELEASE)
-  get_filename_component(Boost_LIBRARY_DIR "${Boost_FIBER_LIBRARY_RELEASE}" DIRECTORY)
-else()
-  get_target_property(FIBER_IMPORT_LIBRARY Boost::fiber IMPORTED_LOCATION_DEBUG)
-  if(NOT FIBER_IMPORT_LIBRARY)
-    get_target_property(FIBER_IMPORT_LIBRARY Boost::fiber IMPORTED_LOCATION_RELEASE)
+if(NOT COMPILE_FOR_MICROCONTROLLERS)
+  if(Boost_FIBER_LIBRARY_DEBUG)
+    get_filename_component(Boost_LIBRARY_DIR "${Boost_FIBER_LIBRARY_DEBUG}" DIRECTORY)
+  elseif(Boost_FIBER_LIBRARY_RELEASE)
+    get_filename_component(Boost_LIBRARY_DIR "${Boost_FIBER_LIBRARY_RELEASE}" DIRECTORY)
+  else()
+    get_target_property(FIBER_IMPORT_LIBRARY Boost::fiber IMPORTED_LOCATION_DEBUG)
+    if(NOT FIBER_IMPORT_LIBRARY)
+      get_target_property(FIBER_IMPORT_LIBRARY Boost::fiber IMPORTED_LOCATION_RELEASE)
+    endif()
+    get_filename_component(Boost_LIBRARY_DIR "${FIBER_IMPORT_LIBRARY}" DIRECTORY)
+    get_target_property(Boost_INCLUDE_DIR Boost::fiber INTERFACE_INCLUDE_DIRECTORIES)
   endif()
-  get_filename_component(Boost_LIBRARY_DIR "${FIBER_IMPORT_LIBRARY}" DIRECTORY)
-  get_target_property(Boost_INCLUDE_DIR Boost::fiber INTERFACE_INCLUDE_DIRECTORIES)
 endif()
 
 if(APPLE)
   set(DEFAULT_OMP_FLAG "-Xclang -fopenmp")
 
-  if(Boost_FIBER_LIBRARY_DEBUG)
-    set(DEFAULT_BOOST_LIBRARIES "${Boost_CONTEXT_LIBRARY_DEBUG} ${Boost_FIBER_LIBRARY_DEBUG} -Wl,-rpath ${Boost_LIBRARY_DIR}")
-  else()
-    set(DEFAULT_BOOST_LIBRARIES "${Boost_CONTEXT_LIBRARY_RELEASE} ${Boost_FIBER_LIBRARY_RELEASE} -Wl,-rpath ${Boost_LIBRARY_DIR}")
+  if(NOT COMPILE_FOR_MICROCONTROLLERS)
+    if(Boost_FIBER_LIBRARY_DEBUG)
+      set(DEFAULT_BOOST_LIBRARIES "${Boost_CONTEXT_LIBRARY_DEBUG} ${Boost_FIBER_LIBRARY_DEBUG} -Wl,-rpath ${Boost_LIBRARY_DIR}")
+    else()
+      set(DEFAULT_BOOST_LIBRARIES "${Boost_CONTEXT_LIBRARY_RELEASE} ${Boost_FIBER_LIBRARY_RELEASE} -Wl,-rpath ${Boost_LIBRARY_DIR}")
+    endif()
   endif()
 else()
   set(DEFAULT_OMP_FLAG "-fopenmp")
@@ -423,21 +437,30 @@ else()
   set(DEFAULT_LINK_PREFIX "-l")
 endif()
 
-if(CMAKE_BUILD_TYPE MATCHES Debug)
-  get_filename_component(Boost_CONTEXT_LIBRARY_NAME "${Boost_CONTEXT_LIBRARY_DEBUG}" NAME)
-  get_filename_component(Boost_FIBER_LIBRARY_NAME "${Boost_FIBER_LIBRARY_DEBUG}" NAME)
+if(NOT COMPILE_FOR_MICROCONTROLLERS)
+  if(CMAKE_BUILD_TYPE MATCHES Debug)
+    get_filename_component(Boost_CONTEXT_LIBRARY_NAME "${Boost_CONTEXT_LIBRARY_DEBUG}" NAME)
+    get_filename_component(Boost_FIBER_LIBRARY_NAME "${Boost_FIBER_LIBRARY_DEBUG}" NAME)
+  else()
+    get_filename_component(Boost_CONTEXT_LIBRARY_NAME "${Boost_CONTEXT_LIBRARY_RELEASE}" NAME)
+    get_filename_component(Boost_FIBER_LIBRARY_NAME "${Boost_FIBER_LIBRARY_RELEASE}" NAME)
+  endif()
+  set(DEFAULT_WIN32_OMP_LINK_LINE "-L${Boost_LIBRARY_DIR} ${DEFAULT_LINK_PREFIX}${Boost_CONTEXT_LIBRARY_NAME} ${DEFAULT_LINK_PREFIX}${Boost_FIBER_LIBRARY_NAME} ${DEFAULT_OMP_FLAG}")
+  set(DEFAULT_WIN32_SEQUENTIAL_LINK_LINE "-L${Boost_LIBRARY_DIR} ${DEFAULT_LINK_PREFIX}${Boost_CONTEXT_LIBRARY_NAME} ${DEFAULT_LINK_PREFIX}${Boost_FIBER_LIBRARY_NAME} -llibomp")
+  # need add_subdirectory(src) before this!
+  set(DEFAULT_APPLE_OMP_LINK_LINE "${DEFAULT_BOOST_LIBRARIES} ${DEFAULT_OMP_FLAG} ${hipSYCL_OpenMP_CXX_LIBRARIES}")
+  set(DEFAULT_APPLE_SEQUENTIAL_LINK_LINE "${DEFAULT_BOOST_LIBRARIES} ${hipSYCL_OpenMP_CXX_LIBRARIES}")
+  set(DEFAULT_OMP_LINK_LINE "-L${Boost_LIBRARY_DIR} -lboost_context -lboost_fiber -Wl,-rpath=${Boost_LIBRARY_DIR} ${DEFAULT_OMP_FLAG}")
+  set(DEFAULT_SEQUENTIAL_LINK_LINE "-L${Boost_LIBRARY_DIR} -lboost_context -lboost_fiber -Wl,-rpath=${Boost_LIBRARY_DIR}")
 else()
-  get_filename_component(Boost_CONTEXT_LIBRARY_NAME "${Boost_CONTEXT_LIBRARY_RELEASE}" NAME)
-  get_filename_component(Boost_FIBER_LIBRARY_NAME "${Boost_FIBER_LIBRARY_RELEASE}" NAME)
+  set(DEFAULT_WIN32_OMP_LINK_LINE "${DEFAULT_OMP_FLAG}")
+  set(DEFAULT_WIN32_SEQUENTIAL_LINK_LINE "-llibomp")
+  # need add_subdirectory(src) before this!
+  set(DEFAULT_APPLE_OMP_LINK_LINE "${DEFAULT_OMP_FLAG} ${hipSYCL_OpenMP_CXX_LIBRARIES}")
+  set(DEFAULT_APPLE_SEQUENTIAL_LINK_LINE "${hipSYCL_OpenMP_CXX_LIBRARIES}")
+  set(DEFAULT_OMP_LINK_LINE "${DEFAULT_OMP_FLAG}")
+  set(DEFAULT_SEQUENTIAL_LINK_LINE "")
 endif()
-set(DEFAULT_WIN32_OMP_LINK_LINE "-L${Boost_LIBRARY_DIR} ${DEFAULT_LINK_PREFIX}${Boost_CONTEXT_LIBRARY_NAME} ${DEFAULT_LINK_PREFIX}${Boost_FIBER_LIBRARY_NAME} ${DEFAULT_OMP_FLAG}")
-set(DEFAULT_WIN32_SEQUENTIAL_LINK_LINE "-L${Boost_LIBRARY_DIR} ${DEFAULT_LINK_PREFIX}${Boost_CONTEXT_LIBRARY_NAME} ${DEFAULT_LINK_PREFIX}${Boost_FIBER_LIBRARY_NAME} -llibomp")
-
-# need add_subdirectory(src) before this!
-set(DEFAULT_APPLE_OMP_LINK_LINE "${DEFAULT_BOOST_LIBRARIES} ${DEFAULT_OMP_FLAG} ${hipSYCL_OpenMP_CXX_LIBRARIES}")
-set(DEFAULT_APPLE_SEQUENTIAL_LINK_LINE "${DEFAULT_BOOST_LIBRARIES} ${hipSYCL_OpenMP_CXX_LIBRARIES}")
-set(DEFAULT_OMP_LINK_LINE "-L${Boost_LIBRARY_DIR} -lboost_context -lboost_fiber -Wl,-rpath=${Boost_LIBRARY_DIR} ${DEFAULT_OMP_FLAG}")
-set(DEFAULT_SEQUENTIAL_LINK_LINE "-L${Boost_LIBRARY_DIR} -lboost_context -lboost_fiber -Wl,-rpath=${Boost_LIBRARY_DIR}")
 
 # If no link lines given, set to default.
 if(WIN32)
@@ -500,11 +523,17 @@ endif()
 
 # always need -D_ENABLE_EXTENDED_ALIGNED_STORAGE to allow correctly aligned local memory on CPU
 if(NOT OMP_CXX_FLAGS)
-  set(OMP_CXX_FLAGS "-I${Boost_INCLUDE_DIR} ${DEFAULT_OMP_FLAG} -D_ENABLE_EXTENDED_ALIGNED_STORAGE" CACHE STRING "Arguments passed to compiler to compile SYCL applications with OpenMP")
+  set(OMP_CXX_FLAGS "${DEFAULT_OMP_FLAG} -D_ENABLE_EXTENDED_ALIGNED_STORAGE" CACHE STRING "Arguments passed to compiler to compile SYCL applications with OpenMP")
+  if(NOT COMPILE_FOR_MICROCONTROLLERS)
+    set(OMP_CXX_FLAGS "${OMP_CXX_FLAGS} -I${Boost_INCLUDE_DIR}")
+  endif()
 endif()
 
 if(NOT SEQUENTIAL_CXX_FLAGS)
-  set(SEQUENTIAL_CXX_FLAGS "-I${Boost_INCLUDE_DIR} -D_ENABLE_EXTENDED_ALIGNED_STORAGE" CACHE STRING "Arguments passed to compiler to compile SYCL applications on host")
+  set(SEQUENTIAL_CXX_FLAGS "-D_ENABLE_EXTENDED_ALIGNED_STORAGE" CACHE STRING "Arguments passed to compiler to compile SYCL applications on host")
+  if(NOT COMPILE_FOR_MICROCONTROLLERS)
+    set(SEQUENTIAL_CXX_FLAGS "${SEQUENTIAL_CXX_FLAGS} -I${Boost_INCLUDE_DIR}")
+  endif()
 endif()
 
 if(BUILD_CLANG_PLUGIN)
@@ -555,6 +584,10 @@ endif()
 
 message(STATUS "Default compilation target(s): ${DEFAULT_TARGETS}")
 
+set(COMPILE_FOR_MICROCONTROLLERS_BOOL "false")
+if(COMPILE_FOR_MICROCONTROLLERS)
+  set(COMPILE_FOR_MICROCONTROLLERS_BOOL "true")
+endif()
 
 set(ACPP_CORE_CONFIG_FILE "{
   \"version-major\" : \"${ACPP_VERSION_MAJOR}\",
@@ -576,7 +609,8 @@ set(ACPP_CORE_CONFIG_FILE "{
   \"default-omp-link-line\" : \"${OMP_LINK_LINE}\",
   \"default-omp-cxx-flags\" : \"${OMP_CXX_FLAGS}\",
   \"default-is-explicit-multipass\" : \"false\",
-  \"default-save-temps\" : \"false\"
+  \"default-save-temps\" : \"false\",
+  \"compile-for-microcontrollers\" : \"${COMPILE_FOR_MICROCONTROLLERS_BOOL}\"
 }
 ")
 

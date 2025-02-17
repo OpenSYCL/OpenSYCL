@@ -22,16 +22,14 @@ set(HIPSYCL_RT_EXTRA_LINKER_FLAGS ${HIPSYCL_RT_EXTRA_LINKER_FLAGS} ${HIPSYCL_STD
 
 set(CMAKE_INSTALL_RPATH ${base} ${base}/hipSYCL)
 
-add_library(acpp-rt SHARED
+set(ACPP_RT_SOURCES
   allocator.cpp
   allocation_tracker.cpp
   application.cpp
   runtime.cpp
   error.cpp
   backend.cpp
-  backend_loader.cpp
   device_id.cpp
-  dylib_loader.cpp
   operations.cpp
   data.cpp
   inorder_executor.cpp
@@ -51,6 +49,15 @@ add_library(acpp-rt SHARED
   generic/async_worker.cpp
   hw_model/memcpy.cpp
   serialization/serialization.cpp)
+
+if(COMPILE_FOR_MICROCONTROLLERS)
+  add_library(acpp-rt STATIC ${ACPP_RT_SOURCES})
+else()
+  list(APPEND ACPP_RT_SOURCES
+    backend_loader.cpp
+    dylib_loader.cpp)
+  add_library(acpp-rt SHARED ${ACPP_RT_SOURCES})
+endif()
 
 target_compile_options(acpp-rt PRIVATE ${HIPSYCL_RT_EXTRA_CXX_FLAGS})
 target_link_libraries(acpp-rt PRIVATE ${HIPSYCL_RT_EXTRA_LINKER_FLAGS} acpp-common Threads::Threads)
@@ -116,6 +123,7 @@ if(WITH_CUDA_BACKEND)
 
   target_include_directories(rt-backend-cuda PRIVATE
     ${HIPSYCL_SOURCE_DIR}/include
+    ${PROJECT_BINARY_DIR}/include
     ${CUDA_TOOLKIT_ROOT_DIR}/include)
   
   target_link_libraries(rt-backend-cuda PRIVATE acpp-rt ${CUDA_LIBS})
@@ -156,7 +164,9 @@ if(WITH_ROCM_BACKEND)
   if(ENABLE_ROCM_UNIFIED_MEMORY_API)
     target_compile_definitions(rt-backend-hip PRIVATE HIPSYCL_RT_HIP_SUPPORTS_UNIFIED_MEMORY=1)
   endif()
-  target_include_directories(rt-backend-hip PRIVATE ${HIPSYCL_SOURCE_DIR}/include)
+  target_include_directories(rt-backend-hip PRIVATE
+    ${HIPSYCL_SOURCE_DIR}/include
+    ${PROJECT_BINARY_DIR}/include)
   if(NOT HIP_FOUND)
     target_include_directories(rt-backend-hip PRIVATE ${ROCM_PATH}/include)
     target_link_libraries(rt-backend-hip PRIVATE ${ROCM_LIBS})
@@ -193,7 +203,9 @@ if(WITH_LEVEL_ZERO_BACKEND)
     ze/ze_queue.cpp
     ze/ze_code_object.cpp)
   
-  target_include_directories(rt-backend-ze PRIVATE ${HIPSYCL_SOURCE_DIR}/include)
+  target_include_directories(rt-backend-ze PRIVATE
+    ${HIPSYCL_SOURCE_DIR}/include
+    ${PROJECT_BINARY_DIR}/include)
   target_link_libraries(rt-backend-ze PRIVATE acpp-rt -lze_loader)
 
   target_compile_options(rt-backend-ze PRIVATE ${HIPSYCL_RT_EXTRA_CXX_FLAGS})
@@ -252,7 +264,9 @@ if(WITH_OPENCL_BACKEND)
     ocl/ocl_event.cpp
     ocl/ocl_queue.cpp)
 
-  target_include_directories(rt-backend-ocl PRIVATE ${HIPSYCL_SOURCE_DIR}/include)
+  target_include_directories(rt-backend-ocl PRIVATE
+    ${HIPSYCL_SOURCE_DIR}/include
+    ${PROJECT_BINARY_DIR}/include)
   target_link_libraries(rt-backend-ocl PRIVATE acpp-rt ${OpenCL_LIBRARIES} ocl-headers ocl-cxx-headers)
 
   target_compile_options(rt-backend-ocl PRIVATE ${HIPSYCL_RT_EXTRA_CXX_FLAGS})
@@ -274,12 +288,18 @@ if(WITH_OPENCL_BACKEND)
 endif()
 
 if(WITH_CPU_BACKEND)
-  add_library(rt-backend-omp SHARED
+  set(RT_BACKEND_OMP_SOURCES
     omp/omp_allocator.cpp
     omp/omp_backend.cpp
     omp/omp_event.cpp
     omp/omp_hardware_manager.cpp
     omp/omp_queue.cpp)
+
+  if(COMPILE_FOR_MICROCONTROLLERS)
+    add_library(rt-backend-omp STATIC ${RT_BACKEND_OMP_SOURCES})
+  else()
+    add_library(rt-backend-omp SHARED ${RT_BACKEND_OMP_SOURCES})
+  endif()
 
     # OMP_ROOT and/or OpenMP_ROOT is not defined by default on Mac
     if (APPLE)
