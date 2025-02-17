@@ -18,11 +18,11 @@
  * which is triggered in device pass of Clang CUDA, we may only use this in host pass.
  * This should not be a problem, as this implementation is anyways just required during host pass.
  */
-#if !defined(HIPSYCL_NO_FIBERS) && !defined(SYCL_DEVICE_ONLY)
-#define HIPSYCL_HAS_FIBERS
+#if defined(ACPP_HAS_BOOST_FIBERS) && !defined(SYCL_DEVICE_ONLY)
+#define ACPP_ENABLE_BOOST_FIBERS
 #endif
 
-#ifdef HIPSYCL_HAS_FIBERS
+#ifdef ACPP_ENABLE_BOOST_FIBERS
 
 #include <functional>
 
@@ -157,6 +157,6 @@ private:
 }
 } // namespace hipsycl
 
-#endif // HIPSYCL_HAS_FIBERS
+#endif // ACPP_ENABLE_BOOST_FIBERS
 
 #endif
