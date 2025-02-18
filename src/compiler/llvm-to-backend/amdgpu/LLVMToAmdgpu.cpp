@@ -132,7 +132,7 @@ public:
     
 
     llvm::SmallVector<std::string> Invocation;
-    auto OffloadArchFlag = "--cuda-gpu-arch="+TargetDevice;
+    auto OffloadArchFlag = "--offload-arch="+TargetDevice;
     auto RocmPathFlag = "--rocm-path="+std::string{RocmPath};
     auto RocmDeviceLibsFlag = "--rocm-device-lib-path="+DeviceLibsPath;
 
