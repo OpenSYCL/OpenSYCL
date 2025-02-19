@@ -25,113 +25,116 @@
 namespace hipsycl {
 namespace sycl {
 
+namespace half_impl {
 class half;
-
-namespace detail {
-  constexpr half create_half(fp16::half_storage h);
-  constexpr fp16::half_storage get_half_storage(half h);
 }
 
-class half {
-private:
-  friend constexpr half detail::create_half(fp16::half_storage h);
-  friend constexpr fp16::half_storage detail::get_half_storage(half h);
+namespace detail {
+  constexpr half_impl::half create_half(fp16::half_storage h);
+  constexpr fp16::half_storage get_half_storage(half_impl::half h);
+}
 
-public:
-  constexpr half() : _data{} {};
+namespace half_impl {
+  class half {
+  private:
+    friend constexpr half detail::create_half(fp16::half_storage h);
+    friend constexpr fp16::half_storage detail::get_half_storage(half h);
   
-  half(float f) noexcept
-  : _data{fp16::create(f)} {}
-
-  half(const half&) = default;
-
-  half& operator=(const half&) noexcept = default;
-
-  operator float() const {
-    return fp16::promote_to_float(_data);
-  }
-
-
-  ACPP_UNIVERSAL_TARGET
-  friend half operator+(const half& a, const half& b) noexcept {
-    fp16::half_storage data;
-    // __acpp_backend_switch contains an if statement for sscp pass, so we
-    // cannot write `fp16::half_storage data = __acpp_backend_switch(...)`.
-    __acpp_backend_switch(
-      data = fp16::builtin_add(a._data, b._data),
-      data = __acpp_sscp_half_add(a._data, b._data),
-      data = fp16::create(__hadd(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data))),
-      // HIP uses compiler builtin addition for native _Float16 type
-      data = fp16::builtin_add(a._data, b._data));
-    return detail::create_half(data);
-  }
-
-  ACPP_UNIVERSAL_TARGET
-  friend half operator-(const half& a, const half& b) noexcept {
-    fp16::half_storage data;
-    __acpp_backend_switch(
-      data = fp16::builtin_sub(a._data, b._data),
-      data = __acpp_sscp_half_sub(a._data, b._data),
-      data = fp16::create(__hsub(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data))),
-      // HIP uses compiler builtin subtraction for native _Float16 type
-      data = fp16::builtin_sub(a._data, b._data));
-    return detail::create_half(data);
-  }
-
-  ACPP_UNIVERSAL_TARGET
-  friend half operator*(const half& a, const half& b) noexcept {
-    fp16::half_storage data;
-    __acpp_backend_switch(
-      data = fp16::builtin_mul(a._data, b._data),
-      data = __acpp_sscp_half_mul(a._data, b._data),
-      data = fp16::create(__hmul(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data))),
-      // HIP uses compiler builtin mul for native _Float16 type
-      data = fp16::builtin_mul(a._data, b._data));
-    return detail::create_half(data);
-  }
-
-  ACPP_UNIVERSAL_TARGET
-  friend half operator/(const half& a, const half& b) noexcept {
-    fp16::half_storage data;
-    __acpp_backend_switch(
-      data = fp16::builtin_div(a._data, b._data),
-      data = __acpp_sscp_half_div(a._data, b._data),
-      data = fp16::create(__hdiv(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data))),
-      // HIP uses compiler builtin div for native _Float16 type
-      data = fp16::builtin_div(a._data, b._data));
-    return detail::create_half(data);
-  }
-
-  friend half& operator+=(half& a, const half& b) noexcept {
-    a = a + b;
-    return a;
-  }
-
-  friend half& operator-=(half& a, const half& b) noexcept {
-    a = a - b;
-    return a;
-  }
-
-  friend half& operator*=(half& a, const half& b) noexcept {
-    a = a * b;
-    return a;
-  }
-
-  friend half& operator/=(half& a, const half& b) noexcept {
-    a = a / b;
-    return a;
-  }
-
-    // operator +,-,*,/ for combinations of half and other types
-#define OP_FOR_TYPE(op, type)                                         \
-  friend half operator op(const half lhs, const type rhs) {           \
-    return lhs op half(rhs);                                          \
-  }                                                                   \
-                                                                      \
-  friend half operator op(const type lhs, const half rhs) {           \
-    return half(lhs) op rhs;                                          \
-  }
-
+  public:
+    constexpr half() : _data{} {};
+    
+    half(float f) noexcept
+    : _data{fp16::create(f)} {}
+  
+    half(const half&) = default;
+  
+    half& operator=(const half&) noexcept = default;
+  
+    operator float() const {
+      return fp16::promote_to_float(_data);
+    }
+  
+  
+    ACPP_UNIVERSAL_TARGET
+    friend half operator+(const half& a, const half& b) noexcept {
+      fp16::half_storage data;
+      // __acpp_backend_switch contains an if statement for sscp pass, so we
+      // cannot write `fp16::half_storage data = __acpp_backend_switch(...)`.
+      __acpp_backend_switch(
+        data = fp16::builtin_add(a._data, b._data),
+        data = __acpp_sscp_half_add(a._data, b._data),
+        data = fp16::create(__hadd(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data))),
+        // HIP uses compiler builtin addition for native _Float16 type
+        data = fp16::builtin_add(a._data, b._data));
+      return detail::create_half(data);
+    }
+  
+    ACPP_UNIVERSAL_TARGET
+    friend half operator-(const half& a, const half& b) noexcept {
+      fp16::half_storage data;
+      __acpp_backend_switch(
+        data = fp16::builtin_sub(a._data, b._data),
+        data = __acpp_sscp_half_sub(a._data, b._data),
+        data = fp16::create(__hsub(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data))),
+        // HIP uses compiler builtin subtraction for native _Float16 type
+        data = fp16::builtin_sub(a._data, b._data));
+      return detail::create_half(data);
+    }
+  
+    ACPP_UNIVERSAL_TARGET
+    friend half operator*(const half& a, const half& b) noexcept {
+      fp16::half_storage data;
+      __acpp_backend_switch(
+        data = fp16::builtin_mul(a._data, b._data),
+        data = __acpp_sscp_half_mul(a._data, b._data),
+        data = fp16::create(__hmul(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data))),
+        // HIP uses compiler builtin mul for native _Float16 type
+        data = fp16::builtin_mul(a._data, b._data));
+      return detail::create_half(data);
+    }
+  
+    ACPP_UNIVERSAL_TARGET
+    friend half operator/(const half& a, const half& b) noexcept {
+      fp16::half_storage data;
+      __acpp_backend_switch(
+        data = fp16::builtin_div(a._data, b._data),
+        data = __acpp_sscp_half_div(a._data, b._data),
+        data = fp16::create(__hdiv(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data))),
+        // HIP uses compiler builtin div for native _Float16 type
+        data = fp16::builtin_div(a._data, b._data));
+      return detail::create_half(data);
+    }
+  
+    friend half& operator+=(half& a, const half& b) noexcept {
+      a = a + b;
+      return a;
+    }
+  
+    friend half& operator-=(half& a, const half& b) noexcept {
+      a = a - b;
+      return a;
+    }
+  
+    friend half& operator*=(half& a, const half& b) noexcept {
+      a = a * b;
+      return a;
+    }
+  
+    friend half& operator/=(half& a, const half& b) noexcept {
+      a = a / b;
+      return a;
+    }
+  
+      // operator +,-,*,/ for combinations of half and other types
+  #define OP_FOR_TYPE(op, type)                                         \
+    friend half operator op(const half lhs, const type rhs) {           \
+      return lhs op half(rhs);                                          \
+    }                                                                   \
+                                                                        \
+    friend half operator op(const type lhs, const half rhs) {           \
+      return half(lhs) op rhs;                                          \
+    }
+  
 #define OP(op)                                                        \
   OP_FOR_TYPE(op, int)                                                \
   OP_FOR_TYPE(op, unsigned int)                                       \
@@ -149,72 +152,128 @@ public:
 
 #undef OP
 #undef OP_FOR_TYPE
+  
+    friend bool operator==(const half& a, const half& b) noexcept {
+      return a._data == b._data;
+    }
+  
+    friend bool operator!=(const half& a, const half& b) noexcept {
+      return a._data != b._data;
+    }
 
-  friend bool operator==(const half& a, const half& b) noexcept {
-    return a._data == b._data;
-  }
+    friend half& operator++(half& a) noexcept {
+      a += 1.f;
+      return a;
+    }
 
-  friend bool operator!=(const half& a, const half& b) noexcept {
-    return a._data != b._data;
-  }
+    friend half operator++(half& a, int) noexcept {
+      half old = a;
+      a += 1.f;
+      return a;
+    }
 
-  // Operator is +/- unary
-  friend half& operator+(half& a) noexcept {
-    return a;
-  }
+    friend half& operator--(half& a) noexcept {
+      a -= 1.f;
+      return a;
+    }
 
-  friend half& operator-(half& a) noexcept {
-    constexpr __acpp_uint16 sign_mask = 0x8000;
-    a._data ^= sign_mask;
-    return a; 
+    friend half operator--(half& a, int) noexcept {
+      half old = a;
+      a -= 1.f;
+      return a;
+    }
+  
+    // Operator is +/- unary
+    friend half operator+(const half& a) noexcept {
+      return a;
+    }
+  
+    friend half operator-(const half& a) noexcept {
+      constexpr __acpp_uint16 sign_mask = 0x8000;
+      half ret = a;
+      ret._data ^= sign_mask;
+      return ret;
+    }
+  
+    ACPP_UNIVERSAL_TARGET
+    friend bool operator<(const half& a, const half& b) noexcept {
+      __acpp_backend_switch(
+        return fp16::builtin_less_than(a._data, b._data),
+        return __acpp_sscp_half_lt(a._data, b._data),
+        return __hlt(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data)),
+        return fp16::builtin_less_than(a._data, b._data))
+    }
+  
+    ACPP_UNIVERSAL_TARGET
+    friend bool operator<=(const half& a, const half& b) noexcept {
+      __acpp_backend_switch(
+        return fp16::builtin_less_than_equal(a._data, b._data),
+        return __acpp_sscp_half_lte(a._data, b._data),
+        return __hle(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data)),
+        return fp16::builtin_less_than_equal(a._data, b._data))
+    }
+  
+    ACPP_UNIVERSAL_TARGET
+    friend bool operator>(const half& a, const half& b) noexcept {
+      __acpp_backend_switch(
+        return fp16::builtin_greater_than(a._data, b._data),
+        return __acpp_sscp_half_gt(a._data, b._data),
+        return __hgt(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data)),
+        return fp16::builtin_greater_than(a._data, b._data))
+    }
+  
+    ACPP_UNIVERSAL_TARGET
+    friend bool operator>=(const half& a, const half& b) noexcept {
+      __acpp_backend_switch(
+        return fp16::builtin_greater_than_equal(a._data, b._data),
+        return __acpp_sscp_half_gte(a._data, b._data),
+        return __hge(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data)),
+        return fp16::builtin_greater_than_equal(a._data, b._data))
+    }
+  
+#define OP_FOR_TYPE(op, type)                                         \
+  friend bool operator op(const half& a, const type& b) {             \
+    return a op half(b);                                              \
+  }                                                                   \
+                                                                      \
+  friend bool operator op(const type& a, const half& b) {             \
+    return half(a) op b;                                              \
   }
+  
+#define OP(op)                                                        \
+  OP_FOR_TYPE(op, int)                                                \
+  OP_FOR_TYPE(op, unsigned int)                                       \
+  OP_FOR_TYPE(op, long)                                               \
+  OP_FOR_TYPE(op, long long)                                          \
+  OP_FOR_TYPE(op, unsigned long)                                      \
+  OP_FOR_TYPE(op, unsigned long long)                                 \
+  OP_FOR_TYPE(op, float)                                              \
+  OP_FOR_TYPE(op, double)
 
-  ACPP_UNIVERSAL_TARGET
-  friend bool operator<(const half& a, const half& b) noexcept {
-    __acpp_backend_switch(
-      return fp16::builtin_less_than(a._data, b._data),
-      return __acpp_sscp_half_lt(a._data, b._data),
-      return __hlt(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data)),
-      return fp16::builtin_less_than(a._data, b._data))
-  }
+  OP(<)
+  OP(<=)
+  OP(>)
+  OP(>=)
+  OP(==)
+  OP(!=)
 
-  ACPP_UNIVERSAL_TARGET
-  friend bool operator<=(const half& a, const half& b) noexcept {
-    __acpp_backend_switch(
-      return fp16::builtin_less_than_equal(a._data, b._data),
-      return __acpp_sscp_half_lte(a._data, b._data),
-      return __hle(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data)),
-      return fp16::builtin_less_than_equal(a._data, b._data))
-  }
+#undef OP
+#undef OP_FOR_TYPE
+  
+  private:
+    fp16::half_storage _data;
+  };
+}
 
-  ACPP_UNIVERSAL_TARGET
-  friend bool operator>(const half& a, const half& b) noexcept {
-    __acpp_backend_switch(
-      return fp16::builtin_greater_than(a._data, b._data),
-      return __acpp_sscp_half_gt(a._data, b._data),
-      return __hgt(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data)),
-      return fp16::builtin_greater_than(a._data, b._data))
-  }
-
-  ACPP_UNIVERSAL_TARGET
-  friend bool operator>=(const half& a, const half& b) noexcept {
-    __acpp_backend_switch(
-      return fp16::builtin_greater_than_equal(a._data, b._data),
-      return __acpp_sscp_half_gte(a._data, b._data),
-      return __hge(fp16::as_cuda_half(a._data), fp16::as_cuda_half(b._data)),
-      return fp16::builtin_greater_than_equal(a._data, b._data))
-  }
-private:
-  fp16::half_storage _data;
-};
+using half = half_impl::half;
 
 namespace detail {
-  constexpr half create_half(fp16::half_storage h) {
+  constexpr half_impl::half create_half(fp16::half_storage h) {
     half v;
     v._data = h;
     return v;
   }
-  constexpr fp16::half_storage get_half_storage(half h) {
+  constexpr fp16::half_storage get_half_storage(half_impl::half h) {
     return h._data;
   }
 }
